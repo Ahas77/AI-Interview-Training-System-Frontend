@@ -1,0 +1,28 @@
+{
+  "name": "multimodal-explainable-ai-framework-for-emotion-aware-interview-coach-with-personalized-calibration",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "tsc -b --pretty false",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.66.8",
+    "lucide-react": "0.468.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "react-router-dom": "7.9.4",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "4.3.4",
+    "typescript": "5.9.3",
+    "vite": "7.1.7"
+  }
+}
