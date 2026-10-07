@@ -1,0 +1,242 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* @import 'flowbite'; */
+
+/* Font family declarations - Default */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Poppins", "Montserrat", sans-serif;
+}
+
+body {
+  font-family: "Roboto", "Open Sans", sans-serif;
+}
+
+/* Landing Page Specific Font Styles (Fraunces & Inter) */
+.landing-page-root {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  color: #33504F;
+}
+
+.landing-page-root .font-sans {
+  font-family: "Inter", system-ui, -apple-system, sans-serif !important;
+}
+
+.landing-page-root h1,
+.landing-page-root h2,
+.landing-page-root h3,
+.landing-page-root h4,
+.landing-page-root h5,
+.landing-page-root h6,
+.landing-page-root .font-heading {
+  font-family: "Fraunces", Georgia, serif !important;
+}
+
+/* Hero Entrance Animations */
+@keyframes heroFadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-fade-in-1 {
+  animation: heroFadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-hero-fade-in-2 {
+  animation: heroFadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
+  opacity: 0;
+}
+
+.animate-hero-fade-in-3 {
+  animation: heroFadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.45s forwards;
+  opacity: 0;
+}
+
+/* Custom CSS for hiding the scrollbar but still allowing scrolling */
+.custom-scroll {
+  overflow-y: scroll;
+  /* Enable scrolling */
+  -ms-overflow-style: none;
+  /* For Internet Explorer */
+  scrollbar-width: none;
+  /* For Firefox */
+}
+
+/* Infinite Marquee Ticker Animation */
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(0%);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-infinite {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: marqueeScroll 35s linear infinite;
+}
+
+.animate-marquee-infinite:hover {
+  animation-play-state: paused;
+}
+
+/* Infinite Marquee Reverse Animation */
+@keyframes marqueeReverse {
+  0% {
+    transform: translateX(-50%);
+  }
+
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-marquee-reverse {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: marqueeReverse 35s linear infinite;
+}
+
+/* Gentle Floating Card Animation */
+@keyframes gentleFloatCard {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.animate-float-card-1 {
+  animation: gentleFloatCard 3.8s ease-in-out infinite;
+}
+
+.animate-float-card-2 {
+  animation: gentleFloatCard 4.4s ease-in-out 0.8s infinite;
+}
+
+.animate-float-card-3 {
+  animation: gentleFloatCard 5s ease-in-out 1.6s infinite;
+}
+
+.animate-marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
+.custom-scroll::-webkit-scrollbar {
+  display: none;
+  /* Hide scrollbar in Webkit browsers (Chrome, Safari) */
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Hide scrollbar in Webkit browsers */
+}
+
+.no-scrollbar,
+.hide-scrollbar {
+  -ms-overflow-style: none; /* For Internet Explorer/Edge */
+  scrollbar-width: none; /* For Firefox */
+}
+
+/* Beautiful Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f359;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #0E8C86, #0B3538);
+  border-radius: 10px;
+  border: 2px solid #f1f5f35b;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #0E8C86, #0B3538);
+  box-shadow: 0 0 8px rgba(14, 140, 134, 0.4);
+  border-color: #f1f5f35b;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(135deg, #0B3538, #0E8C86);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #0E8C86 #f1f5f3;
+}
+
+/* Prevent horizontal overflow on mobile and ensure images scale */
+html,
+body {
+  overflow-x: clip;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Hide native browser password reveal icon in Edge/IE */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Standard lighter & thinner placeholder styles for input fields */
+::placeholder,
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: #9ca3af !important;
+  font-weight: 400 !important;
+  opacity: 0.75 !important;
+}
+
+
+/* Smooth Gallery Grid Fade Scale Entrance Animation */
+@keyframes gridFadeScale {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-grid-fade-in {
+  animation: gridFadeScale 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
