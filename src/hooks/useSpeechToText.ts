@@ -1,14 +1,47 @@
 import { useState, useEffect, useRef } from "react";
 
+type BrowserSpeechRecognitionEvent = {
+  results: {
+    length: number;
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+};
+
+type BrowserSpeechRecognitionErrorEvent = {
+  error: string;
+};
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+type SpeechWindow = Window & {
+  SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+};
+
 export function useSpeechToText() {
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
 
   useEffect(() => {
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setIsSupported(false);
@@ -21,7 +54,7 @@ export function useSpeechToText() {
       recognition.interimResults = true;
       recognition.lang = "en-US";
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: BrowserSpeechRecognitionEvent) => {
         let currentText = "";
         for (let i = 0; i < event.results.length; i++) {
           currentText += event.results[i][0].transcript;
@@ -29,7 +62,7 @@ export function useSpeechToText() {
         setTranscript(currentText);
       };
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event: BrowserSpeechRecognitionErrorEvent) => {
         console.error("Speech recognition error:", event.error);
         if (event.error !== "no-speech") {
           setIsListening(false);

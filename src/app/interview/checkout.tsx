@@ -18,12 +18,14 @@ import {
   AlertCircle,
   RefreshCw,
   Trash2,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { clearAuthStorage, getStoredValue } from "../lib/authStorage";
 import { usePageMetadata } from "../../context/PageContext";
 import axiosInstance from "../lib/axiosInstance";
 import { CVAnalysisCard, ParsedCVData } from "./CVAnalysisCard";
+import { getErrorMessage } from "../progress/errorUtils";
 
 export default function InterviewCheckoutPage() {
   const navigate = useNavigate();
@@ -42,6 +44,7 @@ export default function InterviewCheckoutPage() {
   const [expertiseLevel, setExpertiseLevel] = useState("Intermediate");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [signalConsent, setSignalConsent] = useState(localStorage.getItem("c3SignalConsent") === "true");
 
   // CV Processing UI States: idle | uploading | extracting | ocr | analyzing | success | error
   const [uploadState, setUploadState] = useState<
@@ -83,7 +86,7 @@ export default function InterviewCheckoutPage() {
         setCvFile({ name: latest.file_name || "Uploaded_CV.pdf" });
         setUploadState("success");
       }
-    } catch (err) {
+    } catch {
       setUploadState("idle");
     }
   };
@@ -154,12 +157,11 @@ export default function InterviewCheckoutPage() {
       } else {
         throw new Error(res.data?.message || "Failed to process CV");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimers();
       console.error("CV Upload error:", error);
       setUploadState("error");
-      const errMsg =
-        error.response?.data?.message || error.message || "Unable to analyze this CV right now. Please try again.";
+      const errMsg = getErrorMessage(error, "Unable to analyze this CV right now. Please try again.");
       setErrorMessage(errMsg);
       toast.error(errMsg);
     }
@@ -218,6 +220,11 @@ export default function InterviewCheckoutPage() {
   };
 
   const handleStartInterview = async () => {
+    if (!signalConsent) {
+      toast.info("Please confirm the research and coaching measurement notice before starting.");
+      return;
+    }
+    localStorage.setItem("c3SignalConsent", "true");
     setIsStarting(true);
     try {
       const payload = {
@@ -238,10 +245,9 @@ export default function InterviewCheckoutPage() {
       } else {
         throw new Error(res.data?.message || "Failed to start interview session");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Start interview error:", error);
-      const errMsg =
-        error.response?.data?.message || "Could not start interview session. Please try again.";
+      const errMsg = getErrorMessage(error, "Could not start interview session. Please try again.");
       toast.error(errMsg);
       setIsStarting(false);
     }
@@ -571,6 +577,41 @@ export default function InterviewCheckoutPage() {
                 </select>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-teal-200 p-5 sm:p-6 shadow-xs space-y-4">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2 font-['Poppins',sans-serif]">
+              <ShieldCheck className="w-5 h-5 text-[#0E8C86]" />
+              Research & Coaching Measurements
+            </h2>
+            <p className="text-sm leading-6 text-gray-600">
+              Camera and microphone-derived expression indicators may be stored to track your progress compared with your own warm-up baseline. They are used only for research and coaching, never for hiring decisions, and you can ask for deletion.
+            </p>
+            <label className="flex items-start gap-3 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={signalConsent}
+                onChange={(e) => {
+                  setSignalConsent(e.target.checked);
+                  localStorage.setItem("c3SignalConsent", String(e.target.checked));
+                }}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0E8C86]"
+              />
+              I consent to storing delivery measurements for coaching and research progress tracking.
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                if (!signalConsent) {
+                  toast.info("Please confirm the notice before recording a warm-up.");
+                  return;
+                }
+                navigate("/progress/warmup");
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#0E8C86]/30 bg-teal-50 px-4 py-2 text-sm font-semibold text-[#0E8C86] hover:bg-teal-100"
+            >
+              Record a 30-60 second warm-up
+            </button>
           </div>
 
           {/* ── ACTION BUTTON ── */}

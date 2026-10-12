@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import {
   Home,
   LogOut,
+  LineChart,
+  MessageSquareText,
+  ClipboardCheck,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { clearAuthStorage, getStoredValue } from "../../app/lib/authStorage";
 
 function SideBar() {
-  const [, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     setRole(getStoredValue("role"));
@@ -58,6 +61,53 @@ function SideBar() {
               )}
             </NavLink>
           </li>
+          <li>
+            <NavLink
+              to="/progress"
+              className={({ isActive }) => getLinkClasses(isActive)}
+            >
+              {({ isActive }) => (
+                <>
+                  <LineChart
+                    className={`w-5 h-5 ${isActive ? "text-brand" : "text-white/80"}`}
+                  />
+                  <span className="font-medium">Progress</span>
+                </>
+              )}
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              to="/coaching"
+              className={({ isActive }) => getLinkClasses(isActive)}
+            >
+              {({ isActive }) => (
+                <>
+                  <MessageSquareText
+                    className={`w-5 h-5 ${isActive ? "text-brand" : "text-white/80"}`}
+                  />
+                  <span className="font-medium">Coaching</span>
+                </>
+              )}
+            </NavLink>
+          </li>
+          {role === "admin" && (
+            <li>
+              <NavLink
+                to="/admin/evaluation"
+                className={({ isActive }) => getLinkClasses(isActive)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <ClipboardCheck
+                      className={`w-5 h-5 ${isActive ? "text-brand" : "text-white/80"}`}
+                    />
+                    <span className="font-medium">Evaluation</span>
+                  </>
+                )}
+              </NavLink>
+            </li>
+          )}
         </ul>
       </nav>
 

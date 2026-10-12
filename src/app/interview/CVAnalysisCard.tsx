@@ -45,7 +45,18 @@ export interface ParsedCVData {
     start_date?: string | null;
     end_date?: string | null;
   }>;
-  parsed_data?: any;
+  parsed_data?: {
+    candidate?: ParsedCVData["candidate"];
+    professional_summary?: string | null;
+    technical_skills?: string[];
+    skills?: string[];
+    soft_skills?: string[];
+    experience_years?: number | null;
+    expertise_level?: string | null;
+    suggested_job_roles?: string[];
+    suggested_role?: string | null;
+    suggested_level?: string | null;
+  };
 }
 
 interface CVAnalysisCardProps {

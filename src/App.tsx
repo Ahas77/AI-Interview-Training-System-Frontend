@@ -12,7 +12,12 @@ import { ToastContainer } from "react-toastify";
 import { ChatProvider } from "./components/dashboardLayout/ChatContext";
 import { JSX, useEffect } from "react";
 import { useDevtoolsDetection } from './hooks/useDevtoolsDetection';
-import { getAuthToken } from "./app/lib/authStorage";
+import { getAuthToken, getStoredValue } from "./app/lib/authStorage";
+import ProgressOverviewPage from "./app/progress/ProgressOverviewPage";
+import SessionDetailPage from "./app/progress/SessionDetailPage";
+import CoachingPage from "./app/progress/CoachingPage";
+import AdminEvaluationPage from "./app/progress/AdminEvaluationPage";
+import WarmupPage from "./app/progress/WarmupPage";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -36,6 +41,18 @@ const PublicRoute = ({ children }: { children: JSX.Element }) => {
   const token = getAuthToken();
   if (token) {
     return <Navigate to="/interview-checkout" replace />;
+  }
+  return children;
+};
+
+const AdminRoute = ({ children }: { children: JSX.Element }) => {
+  const token = getAuthToken();
+  const role = getStoredValue("role");
+  if (!token) {
+    return <Navigate to="/signin" replace />;
+  }
+  if (role !== "admin") {
+    return <Navigate to="/progress" replace />;
   }
   return children;
 };
@@ -88,6 +105,46 @@ const App = () => {
                 <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/progress"
+              element={
+                <ProtectedRoute>
+                  <ProgressOverviewPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/progress/session/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <SessionDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/progress/warmup"
+              element={
+                <ProtectedRoute>
+                  <WarmupPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/coaching"
+              element={
+                <ProtectedRoute>
+                  <CoachingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/evaluation"
+              element={
+                <AdminRoute>
+                  <AdminEvaluationPage />
+                </AdminRoute>
               }
             />
             <Route

@@ -27,6 +27,9 @@ import { clearAuthStorage, getStoredValue } from "../lib/authStorage";
 import { useWebcamMic } from "../../hooks/useWebcamMic";
 import { useSpeechToText } from "../../hooks/useSpeechToText";
 import { useTextToSpeech } from "../../hooks/useTextToSpeech";
+import { useC3SignalBatcher } from "../../hooks/useC3SignalBatcher";
+import { SelfRatingModal } from "../../components/c3/SelfRatingModal";
+import { getErrorMessage } from "../progress/errorUtils";
 
 interface QuestionData {
   id: number;
@@ -57,7 +60,7 @@ export default function HRSessionPage() {
 
   // Media Hooks
   const { videoRef, hasPermission, isMicMuted, isVideoOff, toggleMic, toggleVideo } = useWebcamMic();
-  const { transcript, setTranscript, isListening, isSupported, startListening, stopListening, resetTranscript } = useSpeechToText();
+  const { transcript, isListening, isSupported, startListening, stopListening, resetTranscript } = useSpeechToText();
   const { isPlaying: isSpeakingAI, speakQuestion, stopSpeaking } = useTextToSpeech();
 
   // Page States
@@ -68,6 +71,17 @@ export default function HRSessionPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [answerInput, setAnswerInput] = useState("");
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
+  const [showSelfRating, setShowSelfRating] = useState(false);
+  const [devMockSignals, setDevMockSignals] = useState(false);
+
+  const numericSessionId = sessionId ? parseInt(sessionId, 10) : null;
+  const signalConsent = localStorage.getItem("c3SignalConsent") === "true";
+  const { recordTextSignal, flush } = useC3SignalBatcher({
+    sessionId: numericSessionId,
+    qaId: currentQuestion?.id || null,
+    enabled: Boolean(signalConsent && numericSessionId && currentQuestion && !isCompleted),
+    devMockEnabled: devMockSignals,
+  });
 
   // Synchronize transcript from SpeechToText hook to input box
   useEffect(() => {
@@ -108,9 +122,9 @@ export default function HRSessionPage() {
       } else {
         toast.error("Failed to load interview session.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Fetch session error:", err);
-      toast.error(err.response?.data?.message || "Error fetching interview session.");
+      toast.error(getErrorMessage(err, "Error fetching interview session."));
     } finally {
       setLoading(false);
     }
@@ -158,6 +172,8 @@ export default function HRSessionPage() {
 
     setIsSubmitting(true);
     try {
+      recordTextSignal({ transcript: finalAnswerText });
+      await flush();
       const payload = {
         sessionId: parseInt(sessionId, 10),
         qaId: currentQuestion.id,
@@ -169,6 +185,7 @@ export default function HRSessionPage() {
       if (res.data && res.data.success) {
         if (res.data.isCompleted) {
           setIsCompleted(true);
+          setShowSelfRating(true);
           const thankYouText =
             "Thank you for completing your HR interview round! Your responses have been recorded successfully.";
           speakQuestion(thankYouText);
@@ -187,9 +204,9 @@ export default function HRSessionPage() {
       } else {
         toast.error(res.data?.message || "Failed to submit answer.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Submit answer error:", err);
-      toast.error(err.response?.data?.message || "Could not send answer. Please try again.");
+      toast.error(getErrorMessage(err, "Could not send answer. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -427,6 +444,13 @@ export default function HRSessionPage() {
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3">
               <Link
+                to="/progress"
+                className="flex-1 py-3 px-6 bg-[#0B3538] hover:bg-[#1e293b] text-white font-bold rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>View my progress</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
                 to="/dashboard"
                 className="flex-1 py-3 px-6 bg-[#0E8C86] hover:bg-[#0C7873] text-white font-bold rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
               >
@@ -441,6 +465,13 @@ export default function HRSessionPage() {
                 <span>New Interview</span>
               </Link>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowSelfRating(true)}
+              className="text-sm font-semibold text-[#0E8C86] hover:text-[#0B3538]"
+            >
+              Add or edit self-rating
+            </button>
           </div>
         ) : (
           /* ── ACTIVE INTERVIEW DUAL-PANEL LAYOUT (LIGHT THEME) ── */
@@ -534,6 +565,15 @@ export default function HRSessionPage() {
                   <span className="text-xs">Auto-play speaker on new question</span>
                 </label>
               </div>
+              <label className="flex items-center gap-2 border-t border-gray-100 pt-3 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={devMockSignals}
+                  onChange={(e) => setDevMockSignals(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-[#0E8C86]"
+                />
+                Development mock expression indicators (off by default)
+              </label>
             </div>
 
             {/* ── RIGHT PANEL: WEBCAM & MIC STREAM (5 cols) ── */}
@@ -695,6 +735,7 @@ export default function HRSessionPage() {
             </div>
           </div>
         )}
+        <SelfRatingModal sessionId={numericSessionId} isOpen={showSelfRating} onClose={() => setShowSelfRating(false)} />
       </main>
     </div>
   );
