@@ -8,6 +8,9 @@ import { defaultConfig } from "../../app/configs/common";
 import { usePageMetadata } from "../../context/PageContext";
 import { clearAuthStorage, getStoredValue } from "../../app/lib/authStorage";
 
+
+
+
 interface DashboardLayoutProps {
   children: ReactNode;
 }
@@ -17,12 +20,19 @@ interface LogoutResponse {
   message: string;
 }
 
+
+
+
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { metadata: pageMetadata } = usePageMetadata();
+
+
+
+
 
   const storedAvatar = getStoredValue("avatar");
   const storedName = getStoredValue("name") || "User";
@@ -32,6 +42,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
+
+
+
+  
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
   };

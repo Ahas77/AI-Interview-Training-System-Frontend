@@ -10,6 +10,10 @@ export interface PageMetadata {
   subtitle?: string | BreadcrumbItem[];
 }
 
+
+
+
+
 interface PageContextType {
   metadata: PageMetadata;
   setPageMetadata: (metadata: PageMetadata) => void;
@@ -23,6 +27,10 @@ export const PageProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     subtitle: undefined,
   });
 
+
+
+
+  
   return (
     <PageContext.Provider value={{ metadata, setPageMetadata }}>
       {children}
