@@ -9,6 +9,7 @@ export function useWebcamMic() {
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
+    let disposed = false;
 
     async function startMedia() {
       try {
@@ -16,6 +17,7 @@ export function useWebcamMic() {
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
           audio: true,
         });
+        if (disposed) { mediaStream.getTracks().forEach((track) => track.stop()); return; }
         activeStream = mediaStream;
         setStream(mediaStream);
         if (videoRef.current) {
@@ -31,11 +33,16 @@ export function useWebcamMic() {
     startMedia();
 
     return () => {
+      disposed = true;
       if (activeStream) {
         activeStream.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (videoRef.current && stream && videoRef.current.srcObject !== stream) videoRef.current.srcObject = stream;
+  });
 
   const toggleMic = () => {
     if (stream) {

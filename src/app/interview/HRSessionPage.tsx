@@ -28,6 +28,7 @@ import { useWebcamMic } from "../../hooks/useWebcamMic";
 import { useSpeechToText } from "../../hooks/useSpeechToText";
 import { useTextToSpeech } from "../../hooks/useTextToSpeech";
 import { useC3SignalBatcher } from "../../hooks/useC3SignalBatcher";
+import { CameraCoaching } from "../../components/c3/CameraCoaching";
 import { SelfRatingModal } from "../../components/c3/SelfRatingModal";
 import { getErrorMessage } from "../progress/errorUtils";
 
@@ -39,6 +40,7 @@ interface QuestionData {
 }
 
 interface SessionData {
+  created_at: string;
   id: number;
   job_role: string;
   target_company?: string;
@@ -72,7 +74,6 @@ export default function HRSessionPage() {
   const [answerInput, setAnswerInput] = useState("");
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
   const [showSelfRating, setShowSelfRating] = useState(false);
-  const [devMockSignals, setDevMockSignals] = useState(false);
 
   const numericSessionId = sessionId ? parseInt(sessionId, 10) : null;
   const signalConsent = localStorage.getItem("c3SignalConsent") === "true";
@@ -80,7 +81,6 @@ export default function HRSessionPage() {
     sessionId: numericSessionId,
     qaId: currentQuestion?.id || null,
     enabled: Boolean(signalConsent && numericSessionId && currentQuestion && !isCompleted),
-    devMockEnabled: devMockSignals,
   });
 
   // Synchronize transcript from SpeechToText hook to input box
@@ -549,6 +549,8 @@ export default function HRSessionPage() {
                 </div>
               </div>
 
+              <CameraCoaching videoRef={videoRef} sessionId={numericSessionId} qaId={currentQuestion?.id} startedAt={session ? new Date(session.created_at).getTime() : 0} enabled={Boolean(hasPermission && !isVideoOff && !isCompleted && !isSubmitting)} />
+
               {/* Audio Controls & Visualizer */}
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
                 <div className="flex items-center gap-2">
@@ -565,15 +567,7 @@ export default function HRSessionPage() {
                   <span className="text-xs">Auto-play speaker on new question</span>
                 </label>
               </div>
-              <label className="flex items-center gap-2 border-t border-gray-100 pt-3 text-xs text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={devMockSignals}
-                  onChange={(e) => setDevMockSignals(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-[#0E8C86]"
-                />
-                Development mock expression indicators (off by default)
-              </label>
+
             </div>
 
             {/* ── RIGHT PANEL: WEBCAM & MIC STREAM (5 cols) ── */}

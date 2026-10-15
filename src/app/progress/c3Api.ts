@@ -111,6 +111,7 @@ export type QuestionSummary = {
   question_type: string;
   question_text: string;
   answer_score: number | null;
+  answer_feedback?: string | null;
   answer_word_count: number | null;
   response_latency_sec: number | null;
   metrics: Record<string, QuestionMetricSummary>;
@@ -179,6 +180,10 @@ export type SignalReading = {
 };
 
 export const c3Api = {
+  async analyzeAnswers(sessionId: string | number) {
+    const res = await axiosInstance.post<C3ApiResponse<{ analyzed: number }>>(`/c3/session/${sessionId}/analyze`, {}, { timeout: 180000 });
+    return res.data.data;
+  },
   async getOverview() {
     const res = await axiosInstance.get<C3ApiResponse<ProgressOverviewData>>("/c3/progress/overview");
     return res.data.data;

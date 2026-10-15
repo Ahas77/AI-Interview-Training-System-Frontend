@@ -38,7 +38,7 @@ const baseOptions = {
 };
 
 export function ChartCard({ title, subtitle, type = "line", data, options, summary }: ChartCardProps) {
-  const mergedOptions = { ...baseOptions, ...options };
+  const mergedOptions = { ...baseOptions, ...options, scales: { ...baseOptions.scales, ...options?.scales } };
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-4">

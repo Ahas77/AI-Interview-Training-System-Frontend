@@ -18,7 +18,7 @@ function countWords(text: string) {
 }
 
 export function useC3SignalBatcher({ sessionId, qaId, enabled, devMockEnabled = false, getElapsedSec }: UseC3SignalBatcherArgs) {
-  const queueRef = useRef<SignalReading[]>([]);
+  const queueRef = useRef<{ sessionId: number; qaId: number | null; reading: SignalReading }[]>([]);
   const lastFlushRef = useRef(Promise.resolve());
 
   const elapsed = useCallback(() => {
@@ -27,8 +27,8 @@ export function useC3SignalBatcher({ sessionId, qaId, enabled, devMockEnabled = 
 
   const enqueue = useCallback((reading: SignalReading) => {
     if (!enabled || !sessionId) return;
-    queueRef.current.push(reading);
-  }, [enabled, sessionId]);
+    queueRef.current.push({ sessionId, qaId, reading });
+  }, [enabled, sessionId, qaId]);
 
   const recordTextSignal = useCallback(({ transcript }: TextSignalInput) => {
     if (!transcript.trim()) return;
@@ -48,19 +48,24 @@ export function useC3SignalBatcher({ sessionId, qaId, enabled, devMockEnabled = 
   }, [elapsed, enqueue]);
 
   const flush = useCallback(async () => {
-    if (!sessionId || queueRef.current.length === 0) return;
-    const batch = queueRef.current.splice(0, 100);
-    lastFlushRef.current = lastFlushRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        try {
-          await c3Api.sendSignals(sessionId, qaId, batch);
-        } catch {
-          queueRef.current.unshift(...batch);
+    lastFlushRef.current = lastFlushRef.current.catch(() => undefined).then(async () => {
+      while (queueRef.current.length) {
+        const first = queueRef.current[0];
+        const batch = [];
+        while (queueRef.current.length && batch.length < 100 &&
+          queueRef.current[0].sessionId === first.sessionId && queueRef.current[0].qaId === first.qaId) {
+          batch.push(queueRef.current.shift()!);
         }
-      });
+        try {
+          await c3Api.sendSignals(first.sessionId, first.qaId, batch.map((entry) => entry.reading));
+        } catch (error) {
+          queueRef.current.unshift(...batch);
+          throw error;
+        }
+      }
+    });
     await lastFlushRef.current;
-  }, [qaId, sessionId]);
+  }, []);
 
   useEffect(() => {
     if (!enabled || !sessionId) return;
@@ -77,12 +82,12 @@ export function useC3SignalBatcher({ sessionId, qaId, enabled, devMockEnabled = 
           },
         });
       }
-      flush();
+      void flush().catch(() => undefined);
     }, 5000);
 
     return () => {
       window.clearInterval(interval);
-      flush();
+      void flush().catch(() => undefined);
     };
   }, [devMockEnabled, elapsed, enabled, enqueue, flush, sessionId]);
 

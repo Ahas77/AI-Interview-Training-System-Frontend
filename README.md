@@ -1,5 +1,9 @@
 # AI Interview Training System Frontend
 
+## C3 coaching and progress
+
+C3 now includes interview history, baseline-relative progress, per-question-type analysis, sustained drift detection, evidence-based coaching, and optional Grok camera indicators. See the [simple C3 setup and explanation guide](../AI-Interview-Training-System-Backend/C3_GUIDE.md). Backend Grok configuration is required for real AI analysis; the older overview below predates these C3 updates.
+
 This frontend is a React, TypeScript, Vite, and Tailwind CSS application for an AI-powered interview training experience. It connects to the backend API to support user registration, login, CV upload, CV analysis display, interview setup, AI HR interview sessions, speech-to-text answering, text-to-speech question playback, webcam/microphone controls, profile management, and a dashboard shell.
 
 The main user journey is:

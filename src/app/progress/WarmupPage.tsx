@@ -8,6 +8,7 @@ import { useTextToSpeech } from "../../hooks/useTextToSpeech";
 import { useWebcamMic } from "../../hooks/useWebcamMic";
 import { useC3SignalBatcher } from "../../hooks/useC3SignalBatcher";
 import { getErrorMessage } from "./errorUtils";
+import { CameraCoaching } from "../../components/c3/CameraCoaching";
 
 const prompts = [
   "Tell us about your day in a relaxed way.",
@@ -20,7 +21,7 @@ export default function WarmupPage() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState(0);
   const [building, setBuilding] = useState(false);
-  const [devMockEnabled, setDevMockEnabled] = useState(false);
+  const [startedAt] = useState(Date.now);
   const startRef = useRef(Date.now());
   const { videoRef, hasPermission, isMicMuted, isVideoOff, toggleMic, toggleVideo } = useWebcamMic();
   const { transcript, isListening, startListening, stopListening, resetTranscript } = useSpeechToText();
@@ -29,7 +30,6 @@ export default function WarmupPage() {
     sessionId,
     qaId: null,
     enabled: Boolean(sessionId),
-    devMockEnabled,
     getElapsedSec: () => (Date.now() - startRef.current) / 1000,
   });
 
@@ -62,7 +62,7 @@ export default function WarmupPage() {
       if (isListening) stopListening();
       await flush();
       const result = await c3Api.buildBaseline(sessionId);
-      toast.success(`Baseline built. Confidence: ${Math.round(Number(result.baseline?.confidence || 0) * 100)}%`);
+      toast.success(`Baseline built. Reading coverage: ${Math.round(Number(result.baseline?.confidence || 0) * 100)}%`);
       navigate("/progress");
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Failed to build baseline."));
@@ -91,6 +91,8 @@ export default function WarmupPage() {
               <button type="button" onClick={toggleMic} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold">{isMicMuted ? "Unmute mic" : "Mute mic"}</button>
               <button type="button" onClick={toggleVideo} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold">{isVideoOff ? "Turn video on" : "Turn video off"}</button>
             </div>
+            <CameraCoaching videoRef={videoRef} sessionId={sessionId} startedAt={startedAt} enabled={Boolean(hasPermission && !isVideoOff && !building)} />
+            <p className="mt-3 text-sm text-slate-600">Speak naturally for about one minute per prompt. At least 3 valid camera readings are needed for your baseline.</p>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -105,15 +107,12 @@ export default function WarmupPage() {
                 <Mic className="h-4 w-4" />
                 {isListening ? "Stop recording" : "Start speaking"}
               </button>
-              <button type="button" onClick={nextPrompt} disabled={building} className="inline-flex items-center gap-2 rounded-xl bg-[#0B3538] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70">
+              <button type="button" onClick={nextPrompt} disabled={building || !sessionId} className="inline-flex items-center gap-2 rounded-xl bg-[#0B3538] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70">
                 <Send className="h-4 w-4" />
                 {currentPrompt < prompts.length - 1 ? "Next prompt" : building ? "Building baseline..." : "Finish warm-up"}
               </button>
             </div>
-            <label className="mt-5 flex items-center gap-2 text-xs text-gray-600">
-              <input type="checkbox" checked={devMockEnabled} onChange={(e) => setDevMockEnabled(e.target.checked)} />
-              Development mock expression indicators (off by default)
-            </label>
+
           </div>
         </div>
       </div>

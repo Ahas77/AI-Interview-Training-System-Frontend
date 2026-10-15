@@ -106,6 +106,7 @@ export default function ProgressOverviewPage() {
         label: "Average score",
         data: perType?.analysis?.map((item) => item.average_score) || [],
         backgroundColor: "#C9A227",
+        yAxisID: "score",
       },
     ],
   };
@@ -130,6 +131,7 @@ export default function ProgressOverviewPage() {
     return (
       <DashboardLayout>
         <EmptyState title="Not enough progress data yet" message={overview?.message || "Complete a warm-up baseline and at least one interview session to see your coaching dashboard."} />
+        <div className="mt-4 flex gap-4"><Link to="/progress/warmup" className="font-semibold text-teal-700 underline">Record a baseline</Link><Link to="/interview-checkout" className="font-semibold text-teal-700 underline">Start an interview</Link></div>
       </DashboardLayout>
     );
   }
@@ -143,7 +145,8 @@ export default function ProgressOverviewPage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="rounded-2xl border border-teal-200 bg-teal-50/70 p-4 text-sm leading-6 text-[#0B3538]">
-          These results show delivery deviation and expression indicators compared with your own warm-up baseline. They are coaching measurements, not a psychological assessment or hiring decision.
+          These results show delivery indicators compared with your own warm-up baseline. Delivery changes do not automatically mean answer quality improved or declined.
+          {!overview.baseline && <p className="mt-2 font-semibold">Your history is available. <Link to="/progress/warmup" className="underline">Record a baseline</Link> to enable delivery comparisons.</p>}
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -159,7 +162,7 @@ export default function ProgressOverviewPage() {
             icon={TrendingUp}
           />
           <StatCard title="Latest score" value={latestSession.average_answer_score?.toFixed(1) || "N/A"} subtitle="Average answer score when available" icon={Brain} />
-          <StatCard title="Drift status" value={driftEvents.length ? `${driftEvents.length} flagged` : "Clear"} subtitle={drift?.status === "insufficient data" ? drift.message : "Recent sessions checked"} icon={Activity} />
+          <StatCard title="Drift status" value={driftEvents.length ? `${driftEvents.length} flagged` : drift?.status === "insufficient data" ? "Not enough data" : "Clear"} subtitle={drift?.status === "insufficient data" ? drift.message : "Recent sessions checked"} icon={Activity} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -174,7 +177,7 @@ export default function ProgressOverviewPage() {
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-bold text-[#0B3538]">Per-Metric Trend</h2>
-                <p className="mt-1 text-xs text-gray-500">Render whatever expression indicators are returned by the backend.</p>
+                <p className="mt-1 text-xs text-gray-500">See how each observed delivery indicator changes over time.</p>
               </div>
               <select value={selectedMetric} onChange={(e) => setSelectedMetric(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm">
                 {metricNames.map((metric) => <option key={metric} value={metric}>{metric}</option>)}
@@ -190,9 +193,9 @@ export default function ProgressOverviewPage() {
               <h2 className="text-base font-bold text-[#0B3538]">Active Baseline</h2>
               <p className="mt-1 text-sm text-gray-600">Version {overview.baseline?.version} from {overview.baseline?.source || "warm-up"} on {overview.baseline?.created_at ? new Date(overview.baseline.created_at).toLocaleDateString() : "N/A"}.</p>
             </div>
-            <StatusBadge label={`Confidence ${(baselineConfidence * 100).toFixed(0)}%`} tone={baselineConfidence < 0.6 ? "warning" : "success"} />
+            <StatusBadge label={`Reading coverage ${(baselineConfidence * 100).toFixed(0)}%`} tone={baselineConfidence < 0.6 ? "warning" : "success"} />
           </div>
-          {baselineConfidence < 0.6 && <p className="mt-3 text-sm text-amber-700">Low confidence: record a longer warm-up or add more readings before relying on this baseline.</p>}
+          {baselineConfidence < 0.6 && <p className="mt-3 text-sm text-amber-700">Low reading coverage: record a longer warm-up or add more readings before relying on this baseline.</p>}
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {Object.entries(overview.baseline?.metrics || {}).map(([metric, value]) => (
               <div key={metric} className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm">
@@ -204,8 +207,8 @@ export default function ProgressOverviewPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <ChartCard title="Per-Question-Type Analysis" type="bar" data={perTypeChartData} summary={`Weakest type: ${perType?.weakest_type || "not enough data"}.`} />
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <ChartCard title="Per-Question-Type Analysis" type="bar" options={{ scales: { score: { position: "right", min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: "Answer score /100" } } } }} data={perTypeChartData} summary={`Weakest type: ${perType?.weakest_type || "not enough data"}.`} />
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
@@ -281,7 +284,7 @@ export default function ProgressOverviewPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 p-4">
             <h2 className="text-base font-bold text-[#0B3538]">Session History</h2>
           </div>

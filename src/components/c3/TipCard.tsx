@@ -72,7 +72,7 @@ export function TipCard({ tip, onFollowedChange, isUpdating }: TipCardProps) {
           </div>
           <p>{tip.why || "No evidence text was returned for this tip."}</p>
           <p className="mt-2 text-xs text-gray-500">
-            Last time: {tip.before_value ?? "N/A"}, now: {tip.after_value ?? "not evaluated yet"}.
+            {tip.metric === "answer_score" ? "Answer score (higher is better)" : "Distance from baseline (lower is closer)"}: {tip.before_value ?? "N/A"}, later: {tip.after_value ?? "not evaluated yet"}.
           </p>
         </div>
       )}

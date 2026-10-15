@@ -21,6 +21,7 @@ export default function SessionDetailPage() {
   const [error, setError] = useState("");
   const [generating, setGenerating] = useState(false);
   const [ratingOpen, setRatingOpen] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const load = useCallback(async () => {
     if (!sessionId) return;
@@ -81,6 +82,18 @@ export default function SessionDetailPage() {
     }
   };
 
+  const analyzeAnswers = async () => {
+    if (!sessionId) return;
+    setAnalyzing(true);
+    try {
+      const result = await c3Api.analyzeAnswers(sessionId);
+      toast.success(`${result.analyzed} saved answers analysed.`);
+      await load();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Answer analysis unavailable."));
+    } finally { setAnalyzing(false); }
+  };
+
   if (loading) return <DashboardLayout><LoadingSkeleton label="Loading session detail..." /></DashboardLayout>;
   if (error) return <DashboardLayout><ErrorState message={error} onRetry={load} /></DashboardLayout>;
   if (!detail) return <DashboardLayout><EmptyState title="Session not found" message="The session may not belong to this account or may not have enough data yet." /></DashboardLayout>;
@@ -108,6 +121,10 @@ export default function SessionDetailPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {detail.summaries.some((question) => question.answer_score == null) && <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 xl:col-span-2">
+            <p className="text-sm text-slate-700">Analyse saved answers with Grok to add question categories, scores and content feedback. Requires a backend xAI API key.</p>
+            <button type="button" disabled={analyzing} onClick={analyzeAnswers} className="mt-3 rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{analyzing ? "Analysing answers..." : "Analyse saved answers"}</button>
+          </div>}
           <div className="space-y-4">
             {detail.summaries.length === 0 && (
               <EmptyState title="No answered questions yet" message="Complete an interview session before opening question-level analysis." />
@@ -125,9 +142,10 @@ export default function SessionDetailPage() {
                   {question.signal_status !== "available" && <StatusBadge label="insufficient signal" tone="warning" />}
                 </div>
                 <p className="mt-3 text-sm font-semibold leading-6 text-[#0B3538]">{question.question_text}</p>
+                {question.answer_feedback && <p className="mt-2 text-sm leading-6 text-slate-600">Content feedback: {question.answer_feedback}</p>}
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 md:grid-cols-4">
                   <span>Score: {question.answer_score ?? "N/A"}</span>
-                  <span>Latency: {question.response_latency_sec ?? "N/A"}s</span>
+                  <span>Time to submit: {question.response_latency_sec ?? "N/A"}s</span>
                   <span>Words: {question.answer_word_count ?? "N/A"}</span>
                   <span>Deviation: {question.delivery_deviation ?? "N/A"}</span>
                 </div>
