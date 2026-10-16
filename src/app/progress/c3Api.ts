@@ -152,8 +152,8 @@ export type CoachingTip = {
 };
 
 export type EvaluationRow = {
-  user_id: number;
-  session_id: number;
+  user_id: string;
+  session_id: string;
   session_number: number | null;
   fixed_threshold_progress: number | null;
   baseline_relative_progress: number | null;
@@ -205,7 +205,7 @@ export const c3Api = {
     return res.data.data;
   },
   async refreshBaseline(sessionId?: number | null) {
-    const res = await axiosInstance.post<C3ApiResponse<{ baseline?: C3Baseline; status?: string }>>("/c3/baseline/refresh", { sessionId: sessionId || null });
+    const res = await axiosInstance.post<C3ApiResponse<{ baseline?: C3Baseline; status?: string }>>("/c3/baseline/refresh", { sessionId: sessionId || null, confirmed: true });
     return res.data.data;
   },
   async createWarmup() {

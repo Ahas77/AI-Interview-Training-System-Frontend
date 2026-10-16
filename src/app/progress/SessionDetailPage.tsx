@@ -87,10 +87,10 @@ export default function SessionDetailPage() {
     setAnalyzing(true);
     try {
       const result = await c3Api.analyzeAnswers(sessionId);
-      toast.success(`${result.analyzed} saved answers analysed.`);
+      toast.success(`${result.analyzed} saved answer records refreshed.`);
       await load();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Answer analysis unavailable."));
+      toast.error(getErrorMessage(error, "Saved results could not be refreshed."));
     } finally { setAnalyzing(false); }
   };
 
@@ -122,8 +122,8 @@ export default function SessionDetailPage() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {detail.summaries.some((question) => question.answer_score == null) && <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 xl:col-span-2">
-            <p className="text-sm text-slate-700">Analyse saved answers with Grok to add question categories, scores and content feedback. Requires a backend xAI API key.</p>
-            <button type="button" disabled={analyzing} onClick={analyzeAnswers} className="mt-3 rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{analyzing ? "Analysing answers..." : "Analyse saved answers"}</button>
+            <p className="text-sm text-slate-700">Import scores and question categories already supplied by the interview components. Missing scores remain unavailable until a component supplies them.</p>
+            <button type="button" disabled={analyzing} onClick={analyzeAnswers} className="mt-3 rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{analyzing ? "Refreshing results..." : "Refresh component results"}</button>
           </div>}
           <div className="space-y-4">
             {detail.summaries.length === 0 && (

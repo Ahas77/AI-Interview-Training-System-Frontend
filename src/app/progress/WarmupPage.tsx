@@ -92,7 +92,7 @@ export default function WarmupPage() {
               <button type="button" onClick={toggleVideo} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold">{isVideoOff ? "Turn video on" : "Turn video off"}</button>
             </div>
             <CameraCoaching videoRef={videoRef} sessionId={sessionId} startedAt={startedAt} enabled={Boolean(hasPermission && !isVideoOff && !building)} />
-            <p className="mt-3 text-sm text-slate-600">Speak naturally for about one minute per prompt. At least 3 valid camera readings are needed for your baseline.</p>
+            <p className="mt-3 text-sm text-slate-600">Speak naturally for about one minute per prompt. At least 3 valid readings from a connected analysis component are needed for your baseline. Camera preview alone does not produce measurements.</p>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
