@@ -7,6 +7,7 @@ import RegisterPage from "./app/auth/register";
 import Dashboard from "./app/dashboard/dashboard";
 import InterviewCheckoutPage from "./app/interview/checkout";
 import HRSessionPage from "./app/interview/HRSessionPage";
+import TechnicalSessionPage from "./app/interview/TechnicalSessionPage";
 import Profile from "./components/profile/profile";
 import { ToastContainer } from "react-toastify";
 import { ChatProvider } from "./components/dashboardLayout/ChatContext";
@@ -79,6 +80,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <HRSessionPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/interview/technical/session/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <TechnicalSessionPage />
                 </ProtectedRoute>
               }
             />

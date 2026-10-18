@@ -19,12 +19,6 @@ const isBreadcrumb = (value: any): value is BreadcrumbItem[] => {
   );
 };
 
-
-
-
-
-
-
 interface HeadingbarProps {
   title: string;
   className: string;
@@ -37,10 +31,6 @@ interface Message {
   user_id: string;
   image: string;
 }
-
-
-
-
 
 const SUBJECT_LIST = [
   "Order Status Inquiry",

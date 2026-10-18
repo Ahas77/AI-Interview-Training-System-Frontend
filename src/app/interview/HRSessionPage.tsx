@@ -380,9 +380,14 @@ export default function HRSessionPage() {
             </div>
 
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm("Are you sure you want to end this interview session?")) {
-                  navigate("/interview-checkout");
+                  try {
+                    await axiosInstance.post("/interview/complete", { sessionId: parseInt(sessionId || "0", 10) });
+                  } catch (e) {
+                    console.error("Error completing session:", e);
+                  }
+                  navigate("/dashboard");
                 }
               }}
               className="px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
@@ -426,19 +431,40 @@ export default function HRSessionPage() {
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3">
-              <Link
-                to="/dashboard"
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!session?.id) return;
+                  try {
+                    toast.info("Configuring 10-Question Technical Room with company requirements...");
+                    const res = await axiosInstance.post("/interview/technical/start", {
+                      parentSessionId: session.id,
+                      company: session.target_company,
+                      jobRole: session.job_role,
+                      expertiseLevel: session.expertise_level,
+                    });
+
+                    if (res.data && res.data.success && res.data.sessionId) {
+                      toast.success("Joining Technical Interview Room!");
+                      navigate(`/interview/technical/session/${res.data.sessionId}`);
+                    } else {
+                      throw new Error(res.data?.message || "Failed to start technical round");
+                    }
+                  } catch (e: any) {
+                    console.error("Technical start error:", e);
+                    toast.error(e.response?.data?.message || "Could not launch technical round.");
+                  }
+                }}
                 className="flex-1 py-3 px-6 bg-[#0E8C86] hover:bg-[#0C7873] text-white font-bold rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Go to Dashboard</span>
+                <span>Proceed to Technical Round (10 Questions)</span>
                 <ArrowRight className="w-4 h-4" />
-              </Link>
+              </button>
               <Link
-                to="/interview-checkout"
-                className="py-3 px-6 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
+                to="/dashboard"
+                className="py-3 px-5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
               >
-                <RefreshCw className="w-4 h-4 text-gray-500" />
-                <span>New Interview</span>
+                <span>Dashboard</span>
               </Link>
             </div>
           </div>

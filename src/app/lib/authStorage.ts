@@ -11,7 +11,16 @@ export const getStoredValue = (key: string): string => {
 };
 
 export const clearAuthStorage = (): void => {
-  const keys = ["authToken", "name", "avatar", "role", "user_id", "email"];
+  const keys = [
+    "authToken",
+    "name",
+    "avatar",
+    "role",
+    "user_id",
+    "email",
+    "interview_status",
+    "active_session_id",
+  ];
   keys.forEach((key) => {
     localStorage.removeItem(key);
     sessionStorage.removeItem(key);

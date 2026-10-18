@@ -12,10 +12,6 @@ function getAuthToken(): string | null {
   return null;
 }
 
-
-
-
-
 const lastLoggedTimes: Record<string, number> = {};
 
 async function sendInspectLog(reason: string): Promise<void> {
