@@ -64,10 +64,20 @@ const Headingbar: React.FC<HeadingbarProps> = () => {
   // Add this ref at the top of your component
   const subjectListenerRef = useRef<any>(null);
 
+
+
+
+
+
   const [subjects, setSubjects] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [subjectMode, setSubjectMode] = useState<boolean>(false);
 
+
+
+
+
+  
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
