@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, CheckCircle2, Loader2, Play, ShieldAlert, StopCircle } from "lucide-react";
+import { Activity, CheckCircle2, Loader2, ShieldAlert, StopCircle } from "lucide-react";
 import { toast } from "react-toastify";
 import axiosInstance from "../lib/axiosInstance";
 
@@ -12,9 +12,17 @@ type AnalysisStatus =
   | "completed"
   | "error";
 
+export interface BehavioralAnalysisResult {
+  overallStatus: string;
+  mainChanges: Array<{ feature: string; changePercent: number; direction: string }>;
+}
+
 interface BehavioralAnalysisPanelProps {
   stream: MediaStream | null;
   interviewCompleted: boolean;
+  onBaselineReady?: () => void;
+  onAnalysisComplete?: (result: BehavioralAnalysisResult) => void;
+  onBaselineRecordingChange?: (isRecording: boolean) => void;
 }
 
 interface BehavioralSample {
@@ -28,11 +36,6 @@ interface BehavioralSample {
     facial_movement_intensity: number | null;
     head_movement: number | null;
   };
-}
-
-interface AnalysisResult {
-  overallStatus: string;
-  mainChanges: Array<{ feature: string; changePercent: number; direction: string }>;
 }
 
 const SAMPLE_INTERVAL_MS = 1000;
@@ -52,10 +55,13 @@ function getAudioEnergy(analyser: AnalyserNode, buffer: Uint8Array) {
 export default function BehavioralAnalysisPanel({
   stream,
   interviewCompleted,
+  onBaselineReady,
+  onAnalysisComplete,
+  onBaselineRecordingChange,
 }: BehavioralAnalysisPanelProps) {
   const [status, setStatus] = useState<AnalysisStatus>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<BehavioralAnalysisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const sessionIdRef = useRef<number | null>(null);
   const samplesRef = useRef<BehavioralSample[]>([]);
@@ -163,6 +169,7 @@ export default function BehavioralAnalysisPanel({
       setElapsedMs(0);
       setErrorMessage("");
       setStatus(nextStatus);
+      onBaselineRecordingChange?.(nextStatus === "collecting_baseline");
       collectSample();
       timerRef.current = window.setInterval(() => {
         const elapsed = Date.now() - (startedAtRef.current || Date.now());
@@ -194,16 +201,23 @@ export default function BehavioralAnalysisPanel({
     }
   };
 
+  useEffect(() => {
+    if (stream && status === "idle") {
+      void createSessionAndStartBaseline();
+    }
+  }, [stream, status]);
+
   const saveBaseline = async () => {
     const sessionId = sessionIdRef.current;
     const samples = samplesRef.current;
     const elapsed = Date.now() - (startedAtRef.current || Date.now());
     if (!sessionId || elapsed < MIN_BASELINE_MS || samples.length < 2) {
-      toast.info("Continue the warm-up until at least 30 seconds have been captured.");
+      toast.info("Continue your introduction until at least 30 seconds have been captured.");
       return;
     }
 
     stopCollecting();
+    onBaselineRecordingChange?.(false);
     setStatus("saving_baseline");
     try {
       const response = await axiosInstance.post(
@@ -212,9 +226,11 @@ export default function BehavioralAnalysisPanel({
       );
       if (!response.data?.success) throw new Error(response.data?.message || "Could not save baseline.");
       await startCollecting("collecting_measurements");
+      onBaselineReady?.();
     } catch (error: any) {
       console.error("Behavioral baseline save failed:", error);
       setStatus("error");
+      onBaselineRecordingChange?.(false);
       setErrorMessage(error.response?.data?.message || error.message || "Could not save baseline.");
     }
   };
@@ -232,7 +248,9 @@ export default function BehavioralAnalysisPanel({
         { samples: samplesRef.current },
       );
       if (!response.data?.success) throw new Error(response.data?.message || "Could not save measurements.");
-      setResult(response.data);
+      const analysisResult = response.data as BehavioralAnalysisResult;
+      setResult(analysisResult);
+      onAnalysisComplete?.(analysisResult);
       setStatus("completed");
     } catch (error: any) {
       console.error("Behavioral measurement save failed:", error);
@@ -267,10 +285,10 @@ export default function BehavioralAnalysisPanel({
         <div>
           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
             <Activity className="w-4 h-4 text-[#0E8C86]" />
-            Behavioral baseline
+            Your introduction
           </h3>
           <p className="text-xs text-gray-500 mt-1">
-            Private, session-specific vocal energy and facial movement comparison.
+            Speak naturally for 30–60 seconds so your interview performance can be compared with your own baseline.
           </p>
         </div>
         {status === "completed" ? (
@@ -281,20 +299,16 @@ export default function BehavioralAnalysisPanel({
       </div>
 
       {status === "idle" && (
-        <button
-          type="button"
-          onClick={() => void createSessionAndStartBaseline()}
-          disabled={!stream}
-          className="w-full px-4 py-2.5 rounded-xl bg-[#0E8C86] hover:bg-[#0C7873] disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center gap-2"
-        >
-          <Play className="w-4 h-4" /> Start 30-second warm-up
-        </button>
+        <p className="text-xs text-gray-600 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-[#0E8C86]" />
+          {stream ? "Starting your private introduction recording..." : "Waiting for camera and microphone permission..."}
+        </p>
       )}
 
       {status === "collecting_baseline" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs text-gray-600">
-            <span>Warm-up samples: {baselineSeconds}s / 30s minimum</span>
+            <span>Introduction: {baselineSeconds}s / 30s minimum</span>
             <span className="text-[#0E8C86] font-semibold">Recording</span>
           </div>
           <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
@@ -309,7 +323,7 @@ export default function BehavioralAnalysisPanel({
             disabled={isBaselineTooShort}
             className="w-full px-4 py-2 rounded-xl border border-gray-300 disabled:opacity-50 text-xs font-semibold flex items-center justify-center gap-2"
           >
-            <StopCircle className="w-4 h-4" /> Save baseline
+            <StopCircle className="w-4 h-4" /> Continue to interview
           </button>
         </div>
       )}

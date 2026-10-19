@@ -20,6 +20,7 @@ import {
   User,
   LogOut,
   ChevronDown,
+  Activity,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import axiosInstance from "../lib/axiosInstance";
@@ -27,7 +28,7 @@ import { clearAuthStorage, getStoredValue } from "../lib/authStorage";
 import { useWebcamMic } from "../../hooks/useWebcamMic";
 import { useSpeechToText } from "../../hooks/useSpeechToText";
 import { useTextToSpeech } from "../../hooks/useTextToSpeech";
-import BehavioralAnalysisPanel from "./BehavioralAnalysisPanel";
+import BehavioralAnalysisPanel, { BehavioralAnalysisResult } from "./BehavioralAnalysisPanel";
 
 interface QuestionData {
   id: number;
@@ -69,6 +70,9 @@ export default function HRSessionPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [answerInput, setAnswerInput] = useState("");
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
+  const [isIntroductionComplete, setIsIntroductionComplete] = useState(false);
+  const [isIntroductionRecording, setIsIntroductionRecording] = useState(false);
+  const [behavioralResult, setBehavioralResult] = useState<BehavioralAnalysisResult | null>(null);
 
   // Synchronize transcript from SpeechToText hook to input box
   useEffect(() => {
@@ -86,13 +90,13 @@ export default function HRSessionPage() {
 
   // Auto-speak question when currentQuestion changes
   useEffect(() => {
-    if (currentQuestion && currentQuestion.text && autoPlayAudio && !isCompleted) {
+    if (currentQuestion && currentQuestion.text && autoPlayAudio && isIntroductionComplete && !isCompleted) {
       const timer = setTimeout(() => {
         speakQuestion(currentQuestion.text);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [currentQuestion, autoPlayAudio, speakQuestion, isCompleted]);
+  }, [currentQuestion, autoPlayAudio, speakQuestion, isCompleted, isIntroductionComplete]);
 
   const fetchSessionData = async (id: string) => {
     setLoading(true);
@@ -102,6 +106,7 @@ export default function HRSessionPage() {
         setSession(res.data.session);
         if (res.data.session.status === "completed") {
           setIsCompleted(true);
+          setIsIntroductionComplete(true);
         } else if (res.data.currentQuestion) {
           setCurrentQuestion(res.data.currentQuestion);
           setAnswerInput(res.data.currentQuestion.userAnswer || "");
@@ -210,7 +215,9 @@ export default function HRSessionPage() {
 
   const totalQ = session?.total_questions || 5;
   const currentQNum = currentQuestion?.questionNumber || session?.current_question_index || 1;
-  const progressPercent = Math.min((currentQNum / totalQ) * 100, 100);
+  const progressPercent = isIntroductionComplete ? Math.min((currentQNum / totalQ) * 100, 100) : 0;
+  const canAnswerQuestions = (isIntroductionComplete || isIntroductionRecording) && !isCompleted;
+  const isPerformanceReady = Boolean(behavioralResult);
 
   return (
     <div className="min-h-screen bg-slate-50/70 flex flex-col font-['Roboto','Poppins',sans-serif]">
@@ -370,7 +377,7 @@ export default function HRSessionPage() {
           <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
             <div className="flex flex-col items-end gap-1.5 min-w-[140px]">
               <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                <span>Question {currentQNum} of {totalQ}</span>
+                <span>{isIntroductionComplete ? `Question ${currentQNum} of ${totalQ}` : "Introduction"}</span>
               </div>
               <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden border border-gray-200/80">
                 <div
@@ -426,22 +433,68 @@ export default function HRSessionPage() {
               </p>
             </div>
 
+            {!isPerformanceReady && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-xs text-amber-800">
+                Your interview is complete. We are saving the behavioral performance report before you leave this page.
+              </div>
+            )}
+
             <div className="pt-2 flex flex-col sm:flex-row gap-3">
-              <Link
-                to="/dashboard"
-                className="flex-1 py-3 px-6 bg-[#0E8C86] hover:bg-[#0C7873] text-white font-bold rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Go to Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                to="/interview-checkout"
-                className="py-3 px-6 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4 text-gray-500" />
-                <span>New Interview</span>
-              </Link>
+              {isPerformanceReady ? (
+                <Link
+                  to="/dashboard"
+                  className="flex-1 py-3 px-6 bg-[#0E8C86] hover:bg-[#0C7873] text-white font-bold rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="flex-1 py-3 px-6 bg-gray-200 text-gray-500 font-bold rounded-xl text-sm flex items-center justify-center gap-2 cursor-not-allowed"
+                >
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving Performance...</span>
+                </button>
+              )}
+              {isPerformanceReady ? (
+                <Link
+                  to="/interview-checkout"
+                  className="py-3 px-6 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4 text-gray-500" />
+                  <span>New Interview</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="py-3 px-6 bg-white border border-gray-200 text-gray-400 font-semibold rounded-xl text-sm flex items-center justify-center gap-2 cursor-not-allowed"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>New Interview</span>
+                </button>
+              )}
             </div>
+          {behavioralResult && (
+            <div className="bg-teal-50/60 border border-teal-200 rounded-2xl p-5 text-left space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#0E8C86] flex items-center gap-2">
+                <Activity className="w-4 h-4" /> Performance snapshot
+              </p>
+              <p className="text-sm font-semibold text-[#0B3538]">
+                {behavioralResult.overallStatus === "within_personal_baseline"
+                  ? "Your interview stayed close to your personal introduction baseline."
+                  : "Your interview showed changes from your personal introduction baseline."}
+              </p>
+              {behavioralResult.mainChanges.slice(0, 3).map((change) => (
+                <div key={change.feature} className="flex items-center justify-between text-xs text-gray-600">
+                  <span className="capitalize">{change.feature.replace(/_/g, " ")}</span>
+                  <span className="font-semibold text-[#0B3538]">{change.changePercent}% change</span>
+                </div>
+              ))}
+            </div>
+          )}
           </div>
         ) : (
           /* ── ACTIVE INTERVIEW DUAL-PANEL LAYOUT (LIGHT THEME) ── */
@@ -622,11 +675,34 @@ export default function HRSessionPage() {
             </div>
 
             <div className="lg:col-span-5">
-              <BehavioralAnalysisPanel stream={stream} interviewCompleted={isCompleted} />
+              <BehavioralAnalysisPanel
+                stream={stream}
+                interviewCompleted={isCompleted}
+                onBaselineReady={() => setIsIntroductionComplete(true)}
+                onAnalysisComplete={(result) => {
+                  setBehavioralResult(result);
+                  localStorage.setItem(
+                    "latestInterviewPerformance",
+                    JSON.stringify({
+                      ...result,
+                      sessionId,
+                      completedAt: new Date().toISOString(),
+                      jobRole: session?.job_role || "Interview",
+                    }),
+                  );
+                }}
+                onBaselineRecordingChange={setIsIntroductionRecording}
+              />
             </div>
 
             {/* ── BOTTOM RESPONSE PANEL (SPEECH & TEXT INPUT - LIGHT THEME) ── */}
             <div className="lg:col-span-12 bg-white border border-gray-200/90 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+              {!isIntroductionComplete && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+                  <strong>Your introduction is recording automatically.</strong> Speak naturally for 30–60 seconds.
+                  After 30 seconds, click Continue to interview, then submit your introduction below.
+                </div>
+              )}
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-gray-900 font-['Poppins',sans-serif]">Your Answer:</h3>
@@ -641,10 +717,11 @@ export default function HRSessionPage() {
                 <button
                   type="button"
                   onClick={handleMicToggleRecord}
+                  disabled={!canAnswerQuestions}
                   className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
                     isListening
                       ? "bg-red-600 hover:bg-red-700 text-white animate-pulse"
-                      : "bg-[#0E8C86] hover:bg-[#0C7873] text-white"
+                      : "bg-[#0E8C86] hover:bg-[#0C7873] text-white disabled:opacity-50"
                   }`}
                 >
                   {isListening ? (
@@ -666,7 +743,14 @@ export default function HRSessionPage() {
                 <textarea
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
-                  placeholder="Speak using the microphone button above or type your answer here..."
+                  disabled={!canAnswerQuestions}
+                  placeholder={
+                    canAnswerQuestions
+                      ? isIntroductionComplete
+                        ? "Review your introduction or answer the current interview question..."
+                        : "Speak your introduction or type it here while the video is recording..."
+                      : "Start the introduction recording above, then speak naturally for 30 seconds."
+                  }
                   rows={3}
                   className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 text-xs sm:text-sm focus:outline-none focus:border-[#0E8C86] focus:ring-2 focus:ring-[#0E8C86]/20 transition-all resize-none font-sans"
                 />
@@ -681,7 +765,7 @@ export default function HRSessionPage() {
                 <button
                   type="button"
                   onClick={handleSubmitAnswer}
-                  disabled={isSubmitting || !answerInput.trim()}
+                  disabled={!isIntroductionComplete || isSubmitting || !answerInput.trim()}
                   className="px-6 py-2.5 bg-[#0E8C86] hover:bg-[#0C7873] disabled:opacity-50 text-white font-semibold rounded-xl shadow-xs transition-all flex items-center gap-2 text-xs sm:text-sm cursor-pointer"
                 >
                   {isSubmitting ? (
@@ -691,7 +775,7 @@ export default function HRSessionPage() {
                     </>
                   ) : (
                     <>
-                      <span>Submit Answer & Next Question</span>
+                      <span>{isIntroductionComplete ? "Submit Answer & Next Question" : "Continue before submitting"}</span>
                       <Send className="w-4 h-4" />
                     </>
                   )}
