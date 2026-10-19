@@ -27,6 +27,7 @@ import { clearAuthStorage, getStoredValue } from "../lib/authStorage";
 import { useWebcamMic } from "../../hooks/useWebcamMic";
 import { useSpeechToText } from "../../hooks/useSpeechToText";
 import { useTextToSpeech } from "../../hooks/useTextToSpeech";
+import BehavioralAnalysisPanel from "./BehavioralAnalysisPanel";
 
 interface QuestionData {
   id: number;
@@ -56,7 +57,7 @@ export default function HRSessionPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Media Hooks
-  const { videoRef, hasPermission, isMicMuted, isVideoOff, toggleMic, toggleVideo } = useWebcamMic();
+  const { videoRef, stream, hasPermission, isMicMuted, isVideoOff, toggleMic, toggleVideo } = useWebcamMic();
   const { transcript, setTranscript, isListening, isSupported, startListening, stopListening, resetTranscript } = useSpeechToText();
   const { isPlaying: isSpeakingAI, speakQuestion, stopSpeaking } = useTextToSpeech();
 
@@ -618,6 +619,10 @@ export default function HRSessionPage() {
                   {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="lg:col-span-5">
+              <BehavioralAnalysisPanel stream={stream} interviewCompleted={isCompleted} />
             </div>
 
             {/* ── BOTTOM RESPONSE PANEL (SPEECH & TEXT INPUT - LIGHT THEME) ── */}
