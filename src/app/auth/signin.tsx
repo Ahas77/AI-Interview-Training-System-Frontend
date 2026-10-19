@@ -111,6 +111,8 @@ function SigninPage() {
       const role = response.data.data.role;
       const user_id = response.data.data.user_id;
       const email = response.data.data.email;
+      const interview_status = response.data.data.interview_status;
+      const active_session_id = response.data.data.active_session_id;
 
       if (token) {
         setAuthStorage(
@@ -121,14 +123,32 @@ function SigninPage() {
             role: String(role || ""),
             user_id: String(user_id || ""),
             email: String(email || ""),
+            interview_status: String(interview_status || "no_cv"),
+            active_session_id: String(active_session_id || ""),
           },
           rememberMe,
         );
 
         toast.success(response?.data?.message);
-        navigate("/interview-checkout", {
-          state: { email: data?.data?.email },
-        });
+
+        // Intelligent navigation based on interview progress
+        if (interview_status === "technical_pending" && active_session_id) {
+          toast.info("Resuming your AI Technical Questionnaire Round (10 Questions)...");
+          navigate(`/interview/technical/session/${active_session_id}`, {
+            state: { email: data?.data?.email },
+          });
+        } else if (interview_status === "hr_pending" && active_session_id) {
+          toast.info("Resuming your AI HR Questionnaire Round...");
+          navigate(`/interview/session/${active_session_id}`, {
+            state: { email: data?.data?.email },
+          });
+        } else if (interview_status === "technical_completed") {
+          navigate("/dashboard");
+        } else {
+          navigate("/interview-checkout", {
+            state: { email: data?.data?.email },
+          });
+        }
       } else {
         throw new Error("Token not found in response");
       }
@@ -324,8 +344,8 @@ function SigninPage() {
             <div className="flex justify-start mb-6">
               <div className="flex items-center justify-center w-full">
                 <img
-                  src="/images/Group_56.png"
-                  alt="Sri Lankan Festival (Pvt) Ltd"
+                  src="/images/"
+                  alt="Interview images alt"
                   className="object-contain h-12 lg:h-16 mx-auto"
                 />
               </div>
