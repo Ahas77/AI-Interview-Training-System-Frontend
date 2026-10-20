@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { NextStepsRoadmap } from "./NextStepsRoadmap";
 import {
   Sparkles,
   Volume2,
@@ -11,6 +12,8 @@ import {
   Send,
   Loader2,
   CheckCircle2,
+  XCircle,
+  AlertTriangle,
   ArrowRight,
   RefreshCw,
   Briefcase,
@@ -20,11 +23,21 @@ import {
   Cpu,
   Layers,
   ChevronDown,
+  ChevronUp,
   Bell,
   Settings,
   User,
   LogOut,
   HelpCircle,
+  Trophy,
+  Check,
+  X,
+  Lightbulb,
+  Printer,
+  BookOpen,
+  Filter,
+  BarChart3,
+  Award,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import axiosInstance from "../lib/axiosInstance";
@@ -62,6 +75,35 @@ interface SessionData {
   round_type?: string;
 }
 
+interface EvaluationItem {
+  qaId: number;
+  questionNumber: number;
+  questionText: string;
+  userAnswer: string;
+  status: "correct" | "partially_correct" | "wrong";
+  score: number;
+  feedback: string;
+  correctAnswer: string;
+  category?: string;
+}
+
+interface SummaryData {
+  session?: {
+    id: number;
+    targetCompany?: string;
+    jobRole?: string;
+    expertiseLevel?: string;
+    status?: string;
+  };
+  overallScore: number;
+  summary: string;
+  totalQuestions: number;
+  correctCount: number;
+  partiallyCorrectCount: number;
+  wrongCount: number;
+  evaluations: EvaluationItem[];
+}
+
 export default function TechnicalSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -87,6 +129,19 @@ export default function TechnicalSessionPage() {
   const [answerInput, setAnswerInput] = useState("");
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
 
+  // Summary and Evaluation States
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<"all" | "correct" | "partially_correct" | "wrong">("all");
+  const [showModelAnswerMap, setShowModelAnswerMap] = useState<Record<number, boolean>>({});
+  const nextStepsRef = useRef<HTMLDivElement>(null);
+
+  const handleScrollToNextSteps = () => {
+    if (nextStepsRef.current) {
+      nextStepsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   // Synchronize transcript from SpeechToText hook
   useEffect(() => {
     if (transcript) {
@@ -111,6 +166,50 @@ export default function TechnicalSessionPage() {
     }
   }, [currentQuestion, autoPlayAudio, speakQuestion, isCompleted]);
 
+  const fetchSummary = async (id: string) => {
+    setLoadingSummary(true);
+    try {
+      const res = await axiosInstance.get(`/interview/technical/summary/${id}`);
+      if (res.data && res.data.success) {
+        setSummaryData(res.data);
+      }
+    } catch (err: any) {
+      console.error("Fetch summary error:", err);
+      toast.error(err.response?.data?.message || "Could not load evaluation summary.");
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
+  const handleEndSessionEarly = async () => {
+    if (!sessionId) return;
+    if (
+      window.confirm(
+        "Are you sure you want to end your technical interview now and view your answer evaluations?"
+      )
+    ) {
+      try {
+        setLoadingSummary(true);
+        setIsCompleted(true);
+        await axiosInstance.post("/interview/technical/complete", {
+          sessionId: parseInt(sessionId, 10),
+        });
+        await fetchSummary(sessionId);
+      } catch (err) {
+        console.error("End session error:", err);
+      } finally {
+        setLoadingSummary(false);
+      }
+    }
+  };
+
+  const toggleModelAnswer = (questionNumber: number) => {
+    setShowModelAnswerMap((prev) => ({
+      ...prev,
+      [questionNumber]: !prev[questionNumber],
+    }));
+  };
+
   const fetchTechnicalSession = async (id: string) => {
     setLoading(true);
     try {
@@ -120,8 +219,16 @@ export default function TechnicalSessionPage() {
         if (res.data.companyRequirements) {
           setCompanyRequirements(res.data.companyRequirements);
         }
-        if (res.data.session.status === "completed" || res.data.session.status === "technical_completed") {
+        if (
+          res.data.session.status === "completed" ||
+          res.data.session.status === "technical_completed"
+        ) {
           setIsCompleted(true);
+          if (res.data.summary) {
+            setSummaryData(res.data.summary);
+          } else {
+            fetchSummary(id);
+          }
         } else if (res.data.currentQuestion) {
           setCurrentQuestion(res.data.currentQuestion);
           setAnswerInput(res.data.currentQuestion.userAnswer || "");
@@ -190,8 +297,13 @@ export default function TechnicalSessionPage() {
       if (res.data && res.data.success) {
         if (res.data.isCompleted) {
           setIsCompleted(true);
+          if (res.data.summary) {
+            setSummaryData(res.data.summary);
+          } else {
+            fetchSummary(sessionId);
+          }
           const thankYouText =
-            "Congratulations on completing all 10 questions in your technical interview round! Your responses have been recorded.";
+            "Congratulations on completing your technical interview round! Your responses have been evaluated and your summary report is ready.";
           speakQuestion(thankYouText);
           toast.success("10-Question Technical Interview Completed!");
         } else if (res.data.currentQuestion) {
@@ -232,6 +344,13 @@ export default function TechnicalSessionPage() {
   const totalQ = session?.total_questions || 10;
   const currentQNum = currentQuestion?.questionNumber || session?.current_question_index || 1;
   const progressPercent = Math.min((currentQNum / totalQ) * 100, 100);
+
+  const filteredEvaluations = summaryData?.evaluations
+    ? summaryData.evaluations.filter((item) => {
+        if (selectedFilter === "all") return true;
+        return item.status === selectedFilter;
+      })
+    : [];
 
   return (
     <div className="min-h-screen bg-slate-50/70 flex flex-col font-['Roboto','Poppins',sans-serif]">
@@ -293,10 +412,21 @@ export default function TechnicalSessionPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+            {!isCompleted && (
+              <button
+                type="button"
+                onClick={handleEndSessionEarly}
+                className="text-xs font-semibold text-rose-700 hover:text-white hover:bg-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                title="End interview early and view evaluations"
+              >
+                <span>End Session</span>
+              </button>
+            )}
+
             <div className="text-right">
               <span className="text-xs font-bold text-[#0B3538] font-mono">
-                Question {currentQNum} of {totalQ}
+                {isCompleted ? "Session Complete" : `Question ${currentQNum} of ${totalQ}`}
               </span>
               <div className="w-32 sm:w-44 bg-gray-100 rounded-full h-2 mt-1 overflow-hidden border border-gray-200">
                 <div
@@ -308,57 +438,486 @@ export default function TechnicalSessionPage() {
           </div>
         </div>
 
-        {/* Completed State */}
+        {/* ── COMPLETED EVALUATION REPORT STATE ── */}
         {isCompleted ? (
-          <div className="max-w-xl w-full mx-auto bg-white border border-gray-200 rounded-3xl p-8 text-center space-y-6 shadow-md my-auto">
-            <div className="w-20 h-20 rounded-full bg-[#0E8C86]/10 border-2 border-[#0E8C86] flex items-center justify-center mx-auto text-[#0E8C86] shadow-sm">
-              <CheckCircle2 className="w-10 h-10 text-[#0E8C86]" />
+          loadingSummary || !summaryData ? (
+            <div className="max-w-2xl w-full mx-auto bg-white border border-gray-200 rounded-3xl p-10 text-center space-y-6 shadow-sm my-12">
+              <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center mx-auto text-[#0E8C86]">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-[#0B3538] font-['Poppins',sans-serif]">
+                  Analyzing Your Technical Answers...
+                </h2>
+                <p className="text-gray-600 text-sm max-w-md mx-auto">
+                  Our AI Technical Evaluator is evaluating your code solutions and answers against {session?.target_company}'s engineering criteria and compiling the model solutions.
+                </p>
+              </div>
+              <div className="w-48 bg-gray-100 rounded-full h-1.5 mx-auto overflow-hidden">
+                <div className="bg-[#0E8C86] h-full rounded-full animate-pulse w-3/4"></div>
+              </div>
             </div>
+          ) : (
+            <div className="w-full space-y-6">
+              {/* ── TOP HERO SUMMARY BANNER ── */}
+              <div className="bg-gradient-to-r from-[#0B3538] to-[#0E8C86] text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
 
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-[#0B3538] font-['Poppins',sans-serif]">
-                Technical Interview Completed!
-              </h2>
-              <p className="text-gray-600 text-sm font-medium">
-                You have successfully completed all 10 technical questions for {session?.target_company}.
-              </p>
-            </div>
+                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                  <div className="space-y-2 max-w-2xl">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm text-xs font-semibold uppercase tracking-wider text-teal-100 border border-white/20">
+                      <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Technical Evaluation & Solutions Report</span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-['Poppins',sans-serif]">
+                      Performance Summary & Answer Review
+                    </h2>
+                    <p className="text-teal-50/90 text-sm leading-relaxed">
+                      Review all asked questions, your submitted answers, correctness assessments, and verified correct solutions tailored for <span className="font-semibold text-white">{session?.target_company}</span>.
+                    </p>
+                  </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 text-left space-y-2 text-xs text-gray-600">
-              <p className="font-semibold text-gray-800">
-                ✅ HR Questionnaire Round: Complete (5 Questions)
-              </p>
-              <p className="font-semibold text-gray-800">
-                ✅ Technical Questionnaire Round: Complete (10 Questions)
-              </p>
-              <p className="pt-2 text-gray-500">
-                Your code solutions, architectural trade-offs, and voice explanations have been recorded. Our AI evaluator will compile your skill gap & performance matrix.
-              </p>
-            </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white border border-white/30 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer backdrop-blur-sm shadow-xs"
+                      title="Print or Save as PDF"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print / PDF</span>
+                    </button>
+                    <Link
+                      to="/dashboard"
+                      className="px-5 py-2.5 bg-white text-[#0B3538] hover:bg-gray-50 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                    >
+                      <span>Dashboard</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
 
-            <div className="pt-2 flex flex-col sm:flex-row gap-3">
-              <Link
-                to="/dashboard"
-                className="flex-1 py-3 px-6 bg-[#0E8C86] hover:bg-[#0C7873] text-white font-bold rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Go to Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await axiosInstance.post("/interview/reset");
-                  } catch (e) {}
-                  navigate("/interview-checkout");
-                }}
-                className="py-3 px-6 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4 text-gray-500" />
-                <span>New Interview</span>
-              </button>
+              {/* ── 4 KPI METRIC CARDS ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Overall Score */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Overall Score
+                    </span>
+                    <Award className="w-5 h-5 text-[#0E8C86]" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-[#0B3538] font-['Poppins',sans-serif]">
+                        {summaryData.overallScore}%
+                      </span>
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          summaryData.overallScore >= 75
+                            ? "bg-emerald-100 text-emerald-800"
+                            : summaryData.overallScore >= 50
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-rose-100 text-rose-800"
+                        }`}
+                      >
+                        {summaryData.overallScore >= 75
+                          ? "Strong Hire"
+                          : summaryData.overallScore >= 50
+                          ? "Moderate"
+                          : "Needs Review"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Weighted technical competency
+                    </p>
+                  </div>
+                </div>
+
+                {/* Correct Answers */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Correct Answers
+                    </span>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-emerald-600 font-['Poppins',sans-serif]">
+                        {summaryData.correctCount}
+                      </span>
+                      <span className="text-xs font-semibold text-gray-500">
+                        / {summaryData.totalQuestions} questions
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {Math.round(
+                        (summaryData.correctCount / (summaryData.totalQuestions || 1)) * 100
+                      )}
+                      % technically accurate
+                    </p>
+                  </div>
+                </div>
+
+                {/* Partially Correct */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Partially Correct
+                    </span>
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-amber-600 font-['Poppins',sans-serif]">
+                        {summaryData.partiallyCorrectCount}
+                      </span>
+                      <span className="text-xs font-semibold text-gray-500">
+                        / {summaryData.totalQuestions} questions
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Key concepts present, minor gaps
+                    </p>
+                  </div>
+                </div>
+
+                {/* Needs Review / Wrong */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Needs Review
+                    </span>
+                    <XCircle className="w-5 h-5 text-rose-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-rose-600 font-['Poppins',sans-serif]">
+                        {summaryData.wrongCount}
+                      </span>
+                      <span className="text-xs font-semibold text-gray-500">
+                        / {summaryData.totalQuestions} questions
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Study the correct solutions below
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── EXECUTIVE AI FEEDBACK ── */}
+              {summaryData.summary && (
+                <div className="bg-white border border-teal-200/80 rounded-2xl p-5 shadow-xs flex items-start gap-3.5 bg-gradient-to-r from-teal-50/40 to-white">
+                  <div className="w-9 h-9 rounded-xl bg-[#0E8C86]/10 border border-[#0E8C86]/20 flex items-center justify-center text-[#0E8C86] shrink-0 mt-0.5">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-[#0B3538] font-['Poppins',sans-serif]">
+                      AI Evaluator Assessment
+                    </h4>
+                    <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">
+                      {summaryData.summary}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── FILTER TABS ── */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFilter("all")}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      selectedFilter === "all"
+                        ? "bg-[#0E8C86] text-white shadow-xs"
+                        : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                    }`}
+                  >
+                    All Questions ({summaryData.totalQuestions})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFilter("correct")}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      selectedFilter === "correct"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-200"
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Correct ({summaryData.correctCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFilter("partially_correct")}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      selectedFilter === "partially_correct"
+                        ? "bg-amber-500 text-white shadow-xs"
+                        : "bg-white text-amber-700 hover:bg-amber-50 border border-amber-200"
+                    }`}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Partially Correct ({summaryData.partiallyCorrectCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFilter("wrong")}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      selectedFilter === "wrong"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-white text-rose-700 hover:bg-rose-50 border border-rose-200"
+                    }`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Needs Review ({summaryData.wrongCount})</span>
+                  </button>
+                </div>
+
+                <span className="text-xs text-gray-500 font-medium">
+                  Showing {filteredEvaluations.length} of {summaryData.totalQuestions} questions
+                </span>
+              </div>
+
+              {/* ── QUESTION & ANSWER EVALUATION CARDS ── */}
+              <div className="space-y-6">
+                {filteredEvaluations.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center text-gray-500 text-sm">
+                    No questions match the selected filter.
+                  </div>
+                ) : (
+                  filteredEvaluations.map((item) => {
+                    const isCorrect = item.status === "correct";
+                    const isPartial = item.status === "partially_correct";
+                    const isModelExpanded =
+                      showModelAnswerMap[item.questionNumber] ?? (!isCorrect);
+
+                    return (
+                      <div
+                        key={item.qaId}
+                        className={`bg-white rounded-2xl border transition-all shadow-xs overflow-hidden ${
+                          isCorrect
+                            ? "border-emerald-200 hover:border-emerald-300"
+                            : isPartial
+                            ? "border-amber-200 hover:border-amber-300"
+                            : "border-rose-200 hover:border-rose-300"
+                        }`}
+                      >
+                        {/* Card Header with Question Number, Category & Status Pill */}
+                        <div
+                          className={`p-4 sm:p-5 border-b flex flex-wrap items-center justify-between gap-3 ${
+                            isCorrect
+                              ? "bg-emerald-50/40 border-emerald-100"
+                              : isPartial
+                              ? "bg-amber-50/40 border-amber-100"
+                              : "bg-rose-50/40 border-rose-100"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                                isCorrect
+                                  ? "bg-emerald-600 text-white"
+                                  : isPartial
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-rose-500 text-white"
+                              }`}
+                            >
+                              Q{item.questionNumber}
+                            </span>
+                            <span className="text-xs font-semibold text-gray-600">
+                              {item.category || `Question #${item.questionNumber}`}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-gray-600 px-2 py-0.5 bg-white border border-gray-200 rounded-md">
+                              Score: {item.score}/100
+                            </span>
+
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                                isCorrect
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                  : isPartial
+                                  ? "bg-amber-100 text-amber-800 border-amber-200"
+                                  : "bg-rose-100 text-rose-800 border-rose-200"
+                              }`}
+                            >
+                              {isCorrect ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Correct Answer</span>
+                                </>
+                              ) : isPartial ? (
+                                <>
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>Partially Correct</span>
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  <span>Incorrect / Incomplete</span>
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card Body */}
+                        <div className="p-5 sm:p-6 space-y-5">
+                          {/* 1. Asked Question */}
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                              Asked Technical Question:
+                            </span>
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm sm:text-base font-semibold text-gray-900 leading-relaxed font-['Poppins',sans-serif]">
+                              {item.questionText}
+                            </div>
+                          </div>
+
+                          {/* 2. Candidate Answer */}
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                              Your Submitted Solution / Answer:
+                            </span>
+                            <div
+                              className={`p-4 rounded-xl border text-xs sm:text-sm whitespace-pre-wrap leading-relaxed font-mono ${
+                                isCorrect
+                                  ? "bg-emerald-50/20 border-emerald-200 text-gray-800"
+                                  : isPartial
+                                  ? "bg-amber-50/20 border-amber-200 text-gray-800"
+                                  : "bg-rose-50/20 border-rose-200 text-gray-800"
+                              }`}
+                            >
+                              {item.userAnswer && item.userAnswer.trim() ? (
+                                item.userAnswer
+                              ) : (
+                                <span className="italic text-rose-500">
+                                  [No solution or code was provided for this question]
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 3. AI Evaluator Feedback */}
+                          {item.feedback && (
+                            <div className="space-y-1.5">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                AI Evaluator Feedback:
+                              </span>
+                              <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-3.5 text-xs sm:text-sm text-blue-950 leading-relaxed">
+                                {item.feedback}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4. Correct Answer / Model Technical Solution */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <Lightbulb className="w-3.5 h-3.5 text-emerald-600" />
+                                {isCorrect
+                                  ? "Model Technical Answer (Reference)"
+                                  : "Correct Technical Solution (Study & Learn):"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleModelAnswer(item.questionNumber)}
+                                className="text-xs font-semibold text-[#0E8C86] hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>
+                                  {isModelExpanded ? "Hide Model Solution" : "View Model Solution"}
+                                </span>
+                                {isModelExpanded ? (
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+
+                            {isModelExpanded && (
+                              <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/50 border-2 border-emerald-300/80 rounded-xl p-4 sm:p-5 text-xs sm:text-sm text-gray-900 leading-relaxed whitespace-pre-wrap font-sans shadow-inner">
+                                <div className="flex items-center gap-2 mb-2 text-xs font-bold text-emerald-800">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <span>Verified Correct Engineering Solution:</span>
+                                </div>
+                                <div className="text-gray-800 font-normal leading-relaxed">
+                                  {item.correctAnswer}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* ── BOTTOM ACTIONS ── */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+                <div className="space-y-1 text-center sm:text-left">
+                  <h4 className="text-sm font-bold text-[#0B3538] font-['Poppins',sans-serif]">
+                    Ready to practice again or explore skill gaps?
+                  </h4>
+                  <p className="text-xs text-gray-500">
+                    Your answers and ratings have been saved to your profile history.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await axiosInstance.post("/interview/reset");
+                      } catch (e) {}
+                      navigate("/interview-checkout");
+                    }}
+                    className="flex-1 sm:flex-initial py-2.5 px-4 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-gray-500" />
+                    <span>New Interview</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleScrollToNextSteps}
+                    className="flex-1 sm:flex-initial py-2.5 px-5 bg-gradient-to-r from-[#0E8C86] to-[#0A6B66] hover:from-[#0C7873] hover:to-[#085551] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Next Steps & Courses</span>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+
+                  <Link
+                    to="/dashboard"
+                    className="flex-1 sm:flex-initial py-2.5 px-5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                  >
+                    <span>Back to Dashboard</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* ── NEXT STEPS: SUGGESTED COURSES & CAREER ROADMAP ── */}
+              <div ref={nextStepsRef}>
+                <NextStepsRoadmap
+                  jobRole={session?.job_role || summaryData?.session?.jobRole || "Senior Cloud & DevOps Software Engineer"}
+                  targetCompany={session?.target_company || summaryData?.session?.targetCompany || "Enterprise Cloud Tech"}
+                  overallScore={summaryData?.overallScore || 70}
+                />
+              </div>
             </div>
-          </div>
+          )
         ) : (
           /* Dual Panel Technical Room */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
