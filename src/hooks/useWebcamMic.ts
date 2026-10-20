@@ -64,5 +64,5 @@ export function useWebcamMic() {
     }
   };
 
-  return { videoRef, hasPermission, isMicMuted, isVideoOff, toggleMic, toggleVideo };
+  return { videoRef, stream, hasPermission, isMicMuted, isVideoOff, toggleMic, toggleVideo };
 }

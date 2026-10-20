@@ -16,6 +16,10 @@ function SideBar() {
     setRole(getStoredValue("role"));
   }, []);
 
+
+
+  
+
   const handleLogout = () => {
     clearAuthStorage();
     window.location.href = "/signin";

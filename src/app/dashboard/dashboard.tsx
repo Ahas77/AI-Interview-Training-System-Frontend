@@ -22,6 +22,17 @@ import { getStoredValue } from "../lib/authStorage";
 import { checkIsSessionExpired, isLiveClassJoinDisabled } from "../lib/sessionUtils";
 import { toast } from "react-toastify";
 
+interface InterviewPerformance {
+  overallStatus: string;
+  mainChanges: Array<{
+    feature: string;
+    changePercent: number;
+    direction: string;
+  }>;
+  completedAt?: string;
+  jobRole?: string;
+}
+
 interface Course {
   id: string;
   title: string;
@@ -85,6 +96,8 @@ const DashboardPage = () => {
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
   const [practicalSessions, setPracticalSessions] = useState<any[]>([]);
   const [markedVideoIds, setMarkedVideoIds] = useState<number[]>([]);
+  const [latestInterviewPerformance, setLatestInterviewPerformance] =
+    useState<InterviewPerformance | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const { setPageMetadata } = usePageMetadata();
 
@@ -98,6 +111,16 @@ const DashboardPage = () => {
       title: "Dashboard",
       subtitle: "Welcome back, continue your learning journey.",
     });
+
+    const storedPerformance = localStorage.getItem("latestInterviewPerformance");
+    if (storedPerformance) {
+      try {
+        setLatestInterviewPerformance(JSON.parse(storedPerformance) as InterviewPerformance);
+      } catch (error) {
+        console.error("Failed to read saved interview performance:", error);
+        localStorage.removeItem("latestInterviewPerformance");
+      }
+    }
 
     const fetchDashboardData = async () => {
       setLoading(true);
@@ -456,6 +479,57 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Course Progress Section */}
+        {latestInterviewPerformance && (
+          <div className="bg-white rounded-2xl shadow-md p-4 sm:p-6 mb-6 border border-teal-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  Latest Interview Performance
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {latestInterviewPerformance.jobRole || "Interview"} ·{" "}
+                  {latestInterviewPerformance.completedAt
+                    ? new Date(latestInterviewPerformance.completedAt).toLocaleString()
+                    : "Recently completed"}
+                </p>
+              </div>
+              <Link
+                to="/interview-checkout"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-darker"
+              >
+                New Interview
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-xl bg-teal-50 border border-teal-100 p-4 md:col-span-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
+                  Baseline comparison
+                </p>
+                <p className="mt-2 text-sm font-bold text-gray-900">
+                  {latestInterviewPerformance.overallStatus === "within_personal_baseline"
+                    ? "Within your personal baseline"
+                    : "Changes detected from your baseline"}
+                </p>
+              </div>
+
+              {latestInterviewPerformance.mainChanges.slice(0, 2).map((change) => (
+                <div key={change.feature} className="rounded-xl bg-gray-50 border border-gray-100 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 capitalize">
+                    {change.feature.replace(/_/g, " ")}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-brand-dark">
+                    {change.changePercent}%
+                  </p>
+                  <p className="text-xs text-gray-500">change during interview</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Course Progress Section */}
         <div className="bg-white rounded-2xl shadow-md p-4 sm:p-6 mb-6">
