@@ -65,7 +65,7 @@ export default function HRSessionPage() {
 
   // Media Hooks
   const { videoRef, stream, hasPermission, isMicMuted, isVideoOff, toggleMic, toggleVideo } = useWebcamMic();
-  const { transcript, setTranscript, isListening, isSupported, startListening, stopListening, resetTranscript } = useSpeechToText();
+  const { transcript, isListening, isSupported, startListening, stopListening, resetTranscript } = useSpeechToText();
 
   const { isPlaying: isSpeakingAI, speakQuestion, stopSpeaking } = useTextToSpeech();
 
@@ -485,9 +485,9 @@ export default function HRSessionPage() {
                     } else {
                       throw new Error(res.data?.message || "Failed to start technical round");
                     }
-                  } catch (e: any) {
+                  } catch (e: unknown) {
                     console.error("Technical start error:", e);
-                    toast.error(e.response?.data?.message || "Could not launch technical round.");
+                    toast.error(getErrorMessage(e, "Could not launch technical round."));
                   }
                 }}
                 className="flex-1 py-3 px-6 bg-[#0E8C86] hover:bg-[#0C7873] text-white font-bold rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
