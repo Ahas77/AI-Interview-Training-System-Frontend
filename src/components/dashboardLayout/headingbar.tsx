@@ -19,12 +19,6 @@ const isBreadcrumb = (value: any): value is BreadcrumbItem[] => {
   );
 };
 
-
-
-
-
-
-
 interface HeadingbarProps {
   title: string;
   className: string;
@@ -37,10 +31,6 @@ interface Message {
   user_id: string;
   image: string;
 }
-
-
-
-
 
 const SUBJECT_LIST = [
   "Order Status Inquiry",
@@ -74,10 +64,20 @@ const Headingbar: React.FC<HeadingbarProps> = () => {
   // Add this ref at the top of your component
   const subjectListenerRef = useRef<any>(null);
 
+
+
+
+
+
   const [subjects, setSubjects] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [subjectMode, setSubjectMode] = useState<boolean>(false);
 
+
+
+
+
+  
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

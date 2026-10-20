@@ -157,7 +157,7 @@ function RegisterPage() {
         <div className="relative z-10 my-auto py-8 -ml-7 flex justify-center w-full">
           <img
             src="/images/"
-            alt="SLF Logo"
+            alt="Interview logo alt"
             className="object-contain w-auto h-20 lg:h-40 mx-auto"
           />
         </div>
@@ -194,8 +194,8 @@ function RegisterPage() {
               <span>Back to Sign In</span>
             </Link>
             <img
-              src="/images/Group_56.png"
-              alt="SLF Logo"
+              src="/images/"
+              alt="Interview logo alt"
               className="h-8 object-contain"
             />
           </div>

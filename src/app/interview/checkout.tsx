@@ -32,19 +32,30 @@ export default function InterviewCheckoutPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { setPageMetadata } = usePageMetadata();
 
-  // User state
+
   const userName = getStoredValue("name") || "User";
   const userAvatar = getStoredValue("avatar");
   const userEmail = getStoredValue("email") || "user@example.com";
 
-  // Form states
   const [cvFile, setCvFile] = useState<{ name: string; size?: string } | null>(null);
   const [company, setCompany] = useState("");
+  const [customCompany, setCustomCompany] = useState("");
+  const [location, setLocation] = useState("Sri Lanka");
   const [jobRole, setJobRole] = useState("Software Engineer");
   const [expertiseLevel, setExpertiseLevel] = useState("Intermediate");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [signalConsent, setSignalConsent] = useState(localStorage.getItem("c3SignalConsent") === "true");
+
+  const [isSearchingReqs, setIsSearchingReqs] = useState(false);
+  const [verifiedReqs, setVerifiedReqs] = useState<any[]>([]);
+  const [verifiedPostingInfo, setVerifiedPostingInfo] = useState<{
+    isVerified: boolean;
+    sourceUrl?: string;
+    jobTitle?: string;
+    message?: string;
+    jobPostingId?: number | null;
+  } | null>(null);
 
   // CV Processing UI States: idle | uploading | extracting | ocr | analyzing | success | error
   const [uploadState, setUploadState] = useState<
@@ -55,7 +66,6 @@ export default function InterviewCheckoutPage() {
   const [cvAnalysisData, setCvAnalysisData] = useState<ParsedCVData | null>(null);
   const [isAutoApplied, setIsAutoApplied] = useState(false);
 
-  // References for pending timers
   const timer1Ref = useRef<NodeJS.Timeout | null>(null);
   const timer2Ref = useRef<NodeJS.Timeout | null>(null);
 
@@ -70,12 +80,41 @@ export default function InterviewCheckoutPage() {
       subtitle: "Start your personalized interview session",
     });
 
-    fetchLatestCV();
+    const checkStatusAndLoad = async () => {
+      try {
+        const statusRes = await axiosInstance.get("/interview/user-status");
+        if (statusRes.data && statusRes.data.success) {
+          if (
+            statusRes.data.interview_status === "technical_pending" &&
+            statusRes.data.active_session_id
+          ) {
+            toast.info("Resuming your AI Technical Questionnaire Round (10 Questions)...");
+            navigate(`/interview/technical/session/${statusRes.data.active_session_id}`, { replace: true });
+            return;
+          }
+
+          if (
+            statusRes.data.interview_status === "hr_pending" &&
+            statusRes.data.active_session_id
+          ) {
+            toast.info("Resuming your active AI HR Questionnaire Round...");
+            navigate(`/interview/session/${statusRes.data.active_session_id}`, { replace: true });
+            return;
+          }
+        }
+      } catch (statusErr) {
+        console.error("Error checking user interview status:", statusErr);
+      }
+
+      fetchLatestCV();
+    };
+
+    checkStatusAndLoad();
 
     return () => {
       clearTimers();
     };
-  }, [setPageMetadata]);
+  }, [setPageMetadata, navigate]);
 
   const fetchLatestCV = async () => {
     try {
@@ -219,6 +258,57 @@ export default function InterviewCheckoutPage() {
     navigate("/signin");
   };
 
+  const getSelectedCompany = () => {
+    if (company === "Other") return customCompany.trim();
+    return company.trim();
+  };
+
+  const handleVerifyRequirements = async () => {
+    const activeComp = getSelectedCompany();
+    if (!activeComp) {
+      toast.info("Please select or enter a target company first.");
+      return;
+    }
+
+    setIsSearchingReqs(true);
+    setVerifiedPostingInfo(null);
+    setVerifiedReqs([]);
+
+    try {
+      const res = await axiosInstance.post("/company-requirements/search", {
+        company: activeComp,
+        jobRole,
+        seniority: expertiseLevel,
+        location,
+      });
+
+      if (res.data && res.data.success) {
+        setVerifiedPostingInfo({
+          isVerified: res.data.isVerified,
+          sourceUrl: res.data.sourceUrl,
+          jobTitle: res.data.jobTitle,
+          message: res.data.message,
+          jobPostingId: res.data.jobPostingId,
+        });
+
+        if (Array.isArray(res.data.requirements)) {
+          setVerifiedReqs(res.data.requirements);
+        }
+
+        if (res.data.isVerified) {
+          toast.success(`Verified ${res.data.requirements.length} real hiring requirements for ${activeComp}!`);
+        } else {
+          toast.info(res.data.message || `No active job posting found for ${activeComp}. Standard criteria will be used.`);
+        }
+      }
+    } catch (e: any) {
+      console.error("Requirement search error:", e);
+      toast.error(e.response?.data?.message || "Could not search company requirements.");
+    } finally {
+      setIsSearchingReqs(false);
+    }
+  };
+
   const handleStartInterview = async () => {
     if (!signalConsent) {
       toast.info("Please confirm the research and coaching measurement notice before starting.");
@@ -226,13 +316,17 @@ export default function InterviewCheckoutPage() {
     }
     localStorage.setItem("c3SignalConsent", "true");
     setIsStarting(true);
+    const activeComp = getSelectedCompany();
+
     try {
       const payload = {
         cvData: cvAnalysisData,
         cvId: cvAnalysisData?.id || null,
-        company: company || null,
+        company: activeComp || null,
         jobRole: jobRole || "Software Engineer",
         expertiseLevel: expertiseLevel || "Intermediate",
+        location,
+        jobPostingId: verifiedPostingInfo?.jobPostingId || null,
       };
 
       const res = await axiosInstance.post("/interview/start", payload);
@@ -518,12 +612,16 @@ export default function InterviewCheckoutPage() {
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                  Company:
+                  Target Company:
                 </label>
                 <select
                   value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs sm:text-sm text-gray-800 focus:ring-2 focus:ring-[#0E8C86]/30 focus:border-[#0E8C86] outline-none transition-all cursor-pointer"
+                  onChange={(e) => {
+                    setCompany(e.target.value);
+                    setVerifiedPostingInfo(null);
+                    setVerifiedReqs([]);
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs sm:text-sm text-gray-800 focus:ring-2 focus:ring-[#0E8C86]/30 focus:border-[#0E8C86] outline-none transition-all cursor-pointer font-medium"
                 >
                   <option value="">Select target company (Optional)</option>
                   <option value="Google">Google</option>
@@ -533,7 +631,40 @@ export default function InterviewCheckoutPage() {
                   <option value="IFS">IFS</option>
                   <option value="Dialog Axiata">Dialog Axiata</option>
                   <option value="Sysco LABS">Sysco LABS</option>
-                  <option value="Other">Other / Startup</option>
+                  <option value="Other">Other / Type Any Company Name...</option>
+                </select>
+
+                {company === "Other" && (
+                  <input
+                    type="text"
+                    value={customCompany}
+                    onChange={(e) => {
+                      setCustomCompany(e.target.value);
+                      setVerifiedPostingInfo(null);
+                    }}
+                    placeholder="Enter company name (e.g. Amazon, Uber, Atlassian, PickMe)..."
+                    className="mt-2 w-full px-3.5 py-2.5 bg-white border border-teal-300 rounded-xl text-xs sm:text-sm text-gray-800 focus:ring-2 focus:ring-[#0E8C86]/30 focus:border-[#0E8C86] outline-none transition-all"
+                  />
+                )}
+              </div>
+
+              {/* Preferred Location */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                  Hiring Location / Office:
+                </label>
+                <select
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs sm:text-sm text-gray-800 focus:ring-2 focus:ring-[#0E8C86]/30 focus:border-[#0E8C86] outline-none transition-all cursor-pointer"
+                >
+                  <option value="Sri Lanka">Sri Lanka</option>
+                  <option value="Remote">Remote</option>
+                  <option value="Global">Global / Any</option>
+                  <option value="United States">United States</option>
+                  <option value="United Kingdom">United Kingdom</option>
+                  <option value="Singapore">Singapore</option>
                 </select>
               </div>
 
@@ -545,7 +676,10 @@ export default function InterviewCheckoutPage() {
                 </label>
                 <select
                   value={jobRole}
-                  onChange={(e) => setJobRole(e.target.value)}
+                  onChange={(e) => {
+                    setJobRole(e.target.value);
+                    setVerifiedPostingInfo(null);
+                  }}
                   className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs sm:text-sm text-gray-800 focus:ring-2 focus:ring-[#0E8C86]/30 focus:border-[#0E8C86] outline-none transition-all cursor-pointer font-medium"
                 >
                   <option value="Software Engineer">Software Engineer</option>
@@ -576,6 +710,96 @@ export default function InterviewCheckoutPage() {
                   <option value="Lead Architect">Lead / Principal Architect</option>
                 </select>
               </div>
+
+              {/* Real-Time Company Requirements Intelligence Verification Bar */}
+              {getSelectedCompany() && (
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-teal-50/40 border border-teal-200/80 rounded-xl">
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-xs font-bold text-[#0B3538] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#0E8C86]" />
+                        <span>Company Job Requirements Intelligence</span>
+                      </p>
+                      <p className="text-[11px] text-gray-500 truncate">
+                        Search verified hiring requirements for {getSelectedCompany()} {jobRole} from LinkedIn & Careers Archives.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleVerifyRequirements}
+                      disabled={isSearchingReqs}
+                      className="shrink-0 px-3.5 py-1.5 bg-[#0E8C86] hover:bg-[#0C7873] text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75"
+                    >
+                      {isSearchingReqs ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Searching...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Verify Requirements</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Verification Results Feedback */}
+                  {verifiedPostingInfo && (
+                    <div className="mt-3 p-3 bg-white border border-gray-200 rounded-xl text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`font-semibold flex items-center gap-1.5 ${
+                            verifiedPostingInfo.isVerified ? "text-emerald-700" : "text-amber-700"
+                          }`}
+                        >
+                          {verifiedPostingInfo.isVerified ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Verified Against Official Job Postings & LinkedIn Archive</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-4 h-4 text-amber-600" />
+                              <span>Using Role-Based Evaluation Standards</span>
+                            </>
+                          )}
+                        </span>
+                        {verifiedPostingInfo.sourceUrl && (
+                          <a
+                            href={verifiedPostingInfo.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#0E8C86] hover:underline font-medium text-[11px]"
+                          >
+                            View Source ↗
+                          </a>
+                        )}
+                      </div>
+
+                      {verifiedReqs.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold text-gray-500">
+                            Discovered Requirements ({verifiedReqs.length}):
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {verifiedReqs.slice(0, 10).map((req: any, idx: number) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-[11px] font-mono"
+                                title={req.evidence_excerpt || req.description}
+                              >
+                                {req.name || req.requirement_name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

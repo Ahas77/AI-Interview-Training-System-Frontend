@@ -16,10 +16,6 @@ function SideBar() {
     setRole(getStoredValue("role"));
   }, []);
 
-
-
-  
-
   const handleLogout = () => {
     clearAuthStorage();
     window.location.href = "/signin";
@@ -39,7 +35,7 @@ function SideBar() {
       <div className="px-3 py-3 mt-2 border-b border-white/15">
         <div className="flex items-center justify-center">
           <img
-            src="/images/Group_56.png"
+            src="/images/"
             alt="Eye School Logo"
             className="h-16 w-[320px] object-contain"
           />
