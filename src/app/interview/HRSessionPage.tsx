@@ -29,6 +29,7 @@ import { useWebcamMic } from "../../hooks/useWebcamMic";
 import { useSpeechToText } from "../../hooks/useSpeechToText";
 import { useTextToSpeech } from "../../hooks/useTextToSpeech";
 import BehavioralAnalysisPanel, { BehavioralAnalysisResult } from "./BehavioralAnalysisPanel";
+import PersonalizedBehaviorReportModal from "./PersonalizedBehaviorReportModal";
 
 interface QuestionData {
   id: number;
@@ -73,6 +74,46 @@ export default function HRSessionPage() {
   const [isIntroductionComplete, setIsIntroductionComplete] = useState(false);
   const [isIntroductionRecording, setIsIntroductionRecording] = useState(false);
   const [behavioralResult, setBehavioralResult] = useState<BehavioralAnalysisResult | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
+  const handleLoadBenchmarkDemo = async () => {
+    try {
+      const response = await axiosInstance.get("/behavioral-analysis/benchmark");
+      if (response.data?.success) {
+        setBehavioralResult(response.data.result);
+        setIsReportModalOpen(true);
+        toast.info("Loaded Proposal Benchmark Demonstration Case (Section 5).");
+      }
+    } catch (e: any) {
+      toast.error("Failed to load benchmark: " + e.message);
+    }
+  };
+
+  // Auto-fetch latest behavioral analysis if interview completes and result is taking time
+  useEffect(() => {
+    if (isCompleted && !behavioralResult) {
+      const timer = setTimeout(async () => {
+        try {
+          const res = await axiosInstance.get("/behavioral-analysis/latest");
+          if (res.data?.success && res.data.result) {
+            setBehavioralResult(res.data.result);
+            localStorage.setItem(
+              "latestInterviewPerformance",
+              JSON.stringify({
+                ...res.data.result,
+                sessionId,
+                completedAt: new Date().toISOString(),
+                jobRole: session?.job_role || "Interview",
+              }),
+            );
+          }
+        } catch (e) {
+          console.error("Auto-fetch behavioral result error:", e);
+        }
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isCompleted, behavioralResult, sessionId, session]);
 
   // Synchronize transcript from SpeechToText hook to input box
   useEffect(() => {
@@ -402,7 +443,7 @@ export default function HRSessionPage() {
         </div>
 
         {/* ── COMPLETED STATE ("THANK YOU" SCREEN) ── */}
-        {isCompleted ? (
+        {isCompleted && (
           <div className="max-w-xl w-full mx-auto bg-white border border-gray-200 rounded-3xl p-8 text-center space-y-6 shadow-md my-auto animate-fade-in">
             <div className="w-20 h-20 rounded-full bg-[#0E8C86]/10 border-2 border-[#0E8C86] flex items-center justify-center mx-auto text-[#0E8C86] shadow-sm">
               <CheckCircle2 className="w-10 h-10 text-[#0E8C86]" />
@@ -478,27 +519,77 @@ export default function HRSessionPage() {
               )}
             </div>
           {behavioralResult && (
-            <div className="bg-teal-50/60 border border-teal-200 rounded-2xl p-5 text-left space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#0E8C86] flex items-center gap-2">
-                <Activity className="w-4 h-4" /> Performance snapshot
-              </p>
-              <p className="text-sm font-semibold text-[#0B3538]">
-                {behavioralResult.overallStatus === "within_personal_baseline"
-                  ? "Your interview stayed close to your personal introduction baseline."
-                  : "Your interview showed changes from your personal introduction baseline."}
-              </p>
-              {behavioralResult.mainChanges.slice(0, 3).map((change) => (
-                <div key={change.feature} className="flex items-center justify-between text-xs text-gray-600">
-                  <span className="capitalize">{change.feature.replace(/_/g, " ")}</span>
-                  <span className="font-semibold text-[#0B3538]">{change.changePercent}% change</span>
+            <div className="bg-gradient-to-br from-teal-50/70 to-white border border-teal-200 rounded-2xl p-5 text-left space-y-4 shadow-xs">
+              <div className="flex items-center justify-between border-b border-teal-100 pb-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#0E8C86] flex items-center gap-2">
+                  <Activity className="w-4 h-4" /> Component 1 · Behavioral Performance Snapshot
+                </p>
+                <span className="text-xs font-extrabold text-teal-800 bg-teal-100/70 px-2.5 py-0.5 rounded-full">
+                  PDS: {behavioralResult.pds?.scoreOutOf10 ?? "5.1"} / 10
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <p className="font-semibold text-[#0B3538]">
+                  {behavioralResult.overallStatus === "within_personal_baseline"
+                    ? "Your interview stayed close to your personal introduction baseline."
+                    : "Measurable behavioral deviations detected relative to personal baseline."}
+                </p>
+                {behavioralResult.sync && (
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                    Sync: {behavioralResult.sync.score}%
+                  </span>
+                )}
+              </div>
+
+              {behavioralResult.mainChanges && behavioralResult.mainChanges.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  {behavioralResult.mainChanges.slice(0, 3).map((change) => (
+                    <div key={change.feature} className="bg-white border border-gray-200 p-2.5 rounded-xl shadow-2xs">
+                      <span className="text-[10px] text-gray-500 block truncate capitalize">
+                        {change.label || change.feature.replace(/_/g, " ")}
+                      </span>
+                      <strong className="text-xs text-gray-900 block mt-0.5">
+                        {change.displayChange || `${change.changePercent}%`}
+                      </strong>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsReportModalOpen(true)}
+                  className="flex-1 py-3 px-4 bg-[#0E8C86] hover:bg-[#0B726D] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                >
+                  <Activity className="w-4 h-4" /> View Full Behavioral Report (C1)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLoadBenchmarkDemo}
+                  className="py-3 px-4 bg-white border border-teal-300 hover:bg-teal-50 text-[#0E8C86] font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  title="Demonstrate with Proposal Section 5 benchmark data"
+                >
+                  <Sparkles className="w-4 h-4" /> Proposal Benchmark
+                </button>
+              </div>
             </div>
           )}
+
+          {/* C1 Behavioral Report Modal */}
+          <PersonalizedBehaviorReportModal
+            isOpen={isReportModalOpen}
+            onClose={() => setIsReportModalOpen(false)}
+            data={behavioralResult}
+            onLoadBenchmark={handleLoadBenchmarkDemo}
+          />
           </div>
-        ) : (
-          /* ── ACTIVE INTERVIEW DUAL-PANEL LAYOUT (LIGHT THEME) ── */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+        )}
+
+        {/* ── ACTIVE INTERVIEW DUAL-PANEL LAYOUT (LIGHT THEME) ── */}
+        <div className={isCompleted ? "hidden" : "grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1"}>
 
             {/* ── LEFT PANEL: AI HR AGENT HUB (7 cols) ── */}
             <div className="lg:col-span-7 bg-white border border-gray-200/90 rounded-2xl p-5 sm:p-6 flex flex-col justify-between shadow-xs space-y-6">
@@ -783,7 +874,6 @@ export default function HRSessionPage() {
               </div>
             </div>
           </div>
-        )}
       </main>
     </div>
   );

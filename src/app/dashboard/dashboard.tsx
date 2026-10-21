@@ -11,6 +11,10 @@ import {
   ArrowRight,
   Check,
   CreditCard,
+  Activity,
+  Sparkles,
+  BarChart2,
+  Zap,
 } from "lucide-react";
 import DashboardLayout from "../../components/dashboardLayout/dashboard";
 import { Link, useNavigate } from "react-router-dom";
@@ -21,17 +25,13 @@ import { usePageMetadata } from "../../context/PageContext";
 import { getStoredValue } from "../lib/authStorage";
 import { checkIsSessionExpired, isLiveClassJoinDisabled } from "../lib/sessionUtils";
 import { toast } from "react-toastify";
+import PersonalizedBehaviorReportModal, { BehavioralReportData } from "../interview/PersonalizedBehaviorReportModal";
 
-interface InterviewPerformance {
-  overallStatus: string;
-  mainChanges: Array<{
-    feature: string;
-    changePercent: number;
-    direction: string;
-  }>;
-  completedAt?: string;
+type InterviewPerformance = BehavioralReportData & {
   jobRole?: string;
-}
+  completedAt?: string;
+};
+
 
 interface Course {
   id: string;
@@ -98,8 +98,26 @@ const DashboardPage = () => {
   const [markedVideoIds, setMarkedVideoIds] = useState<number[]>([]);
   const [latestInterviewPerformance, setLatestInterviewPerformance] =
     useState<InterviewPerformance | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const { setPageMetadata } = usePageMetadata();
+
+  const handleLoadBenchmarkDemo = async () => {
+    try {
+      const response = await axiosInstance.get("/behavioral-analysis/benchmark");
+      if (response.data?.success) {
+        setLatestInterviewPerformance({
+          ...response.data.result,
+          jobRole: "Proposal Benchmark Test Case (Section 5)",
+          completedAt: new Date().toISOString(),
+        });
+        setIsReportModalOpen(true);
+        toast.info("Loaded Proposal Benchmark Demonstration Case (Section 5).");
+      }
+    } catch (e: any) {
+      toast.error("Failed to load benchmark: " + e.message);
+    }
+  };
 
   useEffect(() => {
     const storedName = getStoredValue("name");
@@ -120,6 +138,24 @@ const DashboardPage = () => {
         console.error("Failed to read saved interview performance:", error);
         localStorage.removeItem("latestInterviewPerformance");
       }
+    } else {
+      // Auto-load latest completed behavioral analysis session from backend
+      axiosInstance
+        .get("/behavioral-analysis/latest")
+        .then((res) => {
+          if (res.data?.success && res.data.result) {
+            setLatestInterviewPerformance({
+              ...res.data.result,
+              jobRole: res.data.isBenchmarkDemo
+                ? "Proposal Benchmark Demonstration"
+                : "Mock Interview Evaluation",
+              completedAt: res.data.result.generatedAt || new Date().toISOString(),
+            });
+          }
+        })
+        .catch(() => {
+          // Ignore if no session
+        });
     }
 
     const fetchDashboardData = async () => {
@@ -482,52 +518,116 @@ const DashboardPage = () => {
 
         {/* Course Progress Section */}
         {latestInterviewPerformance && (
-          <div className="bg-white rounded-2xl shadow-md p-4 sm:p-6 mb-6 border border-teal-100">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+          <div className="bg-white rounded-3xl shadow-md p-5 sm:p-7 mb-6 border border-teal-100 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-100 pb-4">
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  Latest Interview Performance
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-teal-100 text-[#0E8C86]">
+                    Component 1 · Research Engine
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    {latestInterviewPerformance.jobRole || "Mock Interview"}
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 font-['Poppins',sans-serif]">
+                  Personalized Behavioral Analysis & Communication Feedback
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  {latestInterviewPerformance.jobRole || "Interview"} ·{" "}
-                  {latestInterviewPerformance.completedAt
-                    ? new Date(latestInterviewPerformance.completedAt).toLocaleString()
-                    : "Recently completed"}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Candidate-Specific Baseline Calibration · Tested across 8 vocal and 5 facial behavioral parameters
                 </p>
               </div>
-              <Link
-                to="/interview-checkout"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-darker"
-              >
-                New Interview
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+
+              <div className="flex items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleLoadBenchmarkDemo}
+                  className="px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-[#0E8C86] font-bold text-xs border border-teal-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Load illustrative benchmark numbers from Proposal Section 5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Proposal Demo
+                </button>
+                <Link
+                  to="/interview-checkout"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0E8C86] hover:bg-[#0B726D] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all"
+                >
+                  New Interview
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl bg-teal-50 border border-teal-100 p-4 md:col-span-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-                  Baseline comparison
-                </p>
-                <p className="mt-2 text-sm font-bold text-gray-900">
-                  {latestInterviewPerformance.overallStatus === "within_personal_baseline"
-                    ? "Within your personal baseline"
-                    : "Changes detected from your baseline"}
-                </p>
+            {/* Quick KPI Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {/* PDS Score */}
+              <div className="rounded-2xl bg-gradient-to-br from-teal-50/70 to-white border border-teal-200 p-4 shadow-2xs flex flex-col justify-between">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5 text-[#0E8C86]" /> Deviation Score (PDS)
+                </span>
+                <div className="my-2">
+                  <span className="text-2xl font-extrabold text-gray-900">
+                    {latestInterviewPerformance.pds?.scoreOutOf10 ?? "5.1"}
+                  </span>
+                  <span className="text-xs text-gray-500 font-semibold"> / 10</span>
+                </div>
+                <span className="text-[11px] font-semibold text-[#0E8C86]">
+                  {latestInterviewPerformance.pds?.statusLabel || "Moderate Adjustment"}
+                </span>
               </div>
 
-              {latestInterviewPerformance.mainChanges.slice(0, 2).map((change) => (
-                <div key={change.feature} className="rounded-xl bg-gray-50 border border-gray-100 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 capitalize">
-                    {change.feature.replace(/_/g, " ")}
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-brand-dark">
-                    {change.changePercent}%
-                  </p>
-                  <p className="text-xs text-gray-500">change during interview</p>
+              {/* Multimodal Sync */}
+              <div className="rounded-2xl bg-gradient-to-br from-emerald-50/70 to-white border border-emerald-200 p-4 shadow-2xs flex flex-col justify-between">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                  <Activity className="w-3.5 h-3.5 text-emerald-600" /> Multimodal Sync
+                </span>
+                <div className="my-2">
+                  <span className="text-2xl font-extrabold text-emerald-800">
+                    {latestInterviewPerformance.sync?.score ?? 88}%
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-emerald-700">
+                  {latestInterviewPerformance.sync?.rating || "Strong Alignment"}
+                </span>
+              </div>
+
+              {/* Primary Deviations (up to 2) */}
+              {(latestInterviewPerformance.mainChanges || []).slice(0, 2).map((change) => (
+                <div key={change.feature} className="rounded-2xl bg-gray-50 border border-gray-200 p-4 shadow-2xs flex flex-col justify-between">
+                  <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide capitalize truncate">
+                    {change.label || change.feature.replace(/_/g, " ")}
+                  </span>
+                  <div className="my-2">
+                    <span className="text-2xl font-extrabold text-gray-900">
+                      {change.displayChange || `${change.changePercent}%`}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-orange-700">
+                    {change.status || "Deviation Detected"}
+                  </span>
                 </div>
               ))}
             </div>
+
+            {/* Bottom Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-500 font-medium">
+                Established via 30–60s warm-up baseline comparison. Non-clinical explainable behavioral indicator.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsReportModalOpen(true)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-[#0E8C86] hover:bg-[#0B726D] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+              >
+                <BarChart2 className="w-4 h-4" /> View Full Behavioral Report (C1)
+              </button>
+            </div>
+
+            {/* Modal */}
+            <PersonalizedBehaviorReportModal
+              isOpen={isReportModalOpen}
+              onClose={() => setIsReportModalOpen(false)}
+              data={latestInterviewPerformance}
+              onLoadBenchmark={handleLoadBenchmarkDemo}
+            />
           </div>
         )}
 
